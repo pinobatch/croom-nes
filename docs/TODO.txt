@@ -1,0 +1,35 @@
+== Before the next release ==
+
+milestone: lite 0.02
+1. drawcards: move arrow down and to the right by 8 pixels during
+   collecting or unflipping phases
+2. shuffle-enable lines of code in drawcards
+3. 
+4. 
+5. 
+6. 
+7. 
+8. compression tool: XOR tiles against the row above to see if
+   runlengths are shorter
+9. 
+10. find all walk cycles on computer upstairs
+11. make a 32x64 pixel 8 frame walk cycle template based on real-world data
+12. buy a usb memory card just for backups of developer folders
+13. update web pages
+14. Beat Story Mode
+15. Make sure the project builds in another folder
+
+milestone: lite final
+1. Convert gamegfx.png so that top/bottom of in-game tile is
+   in bit 0 (not bit 4)
+2. With Sara, write story mode scripts
+3. Look up "locked in a room" plots on TV Tropes
+4. Figure out what the concentration room looks like
+
+milestone: deluxe test 1
+1. Emblem editor
+2. Image compression tool
+3. Graphics for story mode
+4. Finish lite final
+5. More emblems (total 160)
+

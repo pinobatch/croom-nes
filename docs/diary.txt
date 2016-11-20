@@ -1,0 +1,131 @@
+== Development story ==
+
+Concentration is focusing the mind.  Camp is where parents send kids
+over the summer.  So a concentration camp must be a place where
+kids with ADHD or other learning disorders can learn coping skills.
+But no, it's a detention facility for minority groups disliked
+by the government.
+
+I came up with the idea of a better memory game for NES back in 2000.
+The existing card-matching games for NES, GameTek's Classic
+Concentration and Fisher-Price's I Can Remember, didn't resemble the
+72-card Ravensburger/MB game that I remembered from my childhood.
+So I decided to make one loosely based on Holocaust concentration
+camps.  Google shows that by far, I wasn't the only person to joke
+about connecting the literal and Nazi meanings of the term.  But for
+several reasons, including the difficulty of finding NES copiers
+back then, I only got as far as laying out the title and play screens
+before giving up on it in favor of the PC projects I was working on
+at the time.
+
+In 2007, I tried again.  I drew a couple dozen card emblems,
+including all fruits and all tools from Nintendo's Animal Crossing
+series.  Then I revamped the appearance of the board and implemented
+some of the features slated to appear in the deluxe game.  But
+by then I had a day job, and crunch time for version 0.42 of
+Lockjaw Tetromino Game took most of my free time.
+
+In the fourth quarter of 2008, I bought a PowerPak, a CompactFlash
+to NES adapter roughly equivalent to the SuperCard for GBA, and a
+laptop running Ubuntu.  Sometime in the next year, the YouTube Poop
+scene discovered a Chinese NES game called Dian Shi Mali, a virtual
+slot machine with a Mario-like mascot named Fortran.  This character
+and his catchphrase "PUSH START TO RICH" became an Internet meme,
+which I discovered in early December 2009.  But by then, I realized
+that the same fruit emblems on the slot machine spaces could become
+fruit emblems on cards in a memory game.
+
+This led me to go dig out my first and second tries at the game and
+rescue the graphics that I had already drawn for the second try.
+In fact, the dozen emblems I managed to rescue were clearer than
+the Dian Shi Mali graphics.  Then I sat down with Wingdings and a
+six-year-old cousin for inspiration and spent a few hours drawing
+dozens of emblems over the next day.  As I spent one or two hours
+of coding of each day for the next four weeks, the game slowly came
+to life.  I felt less discouraged than in previous tries for at
+least two reasons.  First, seeing my code run on an NES through
+a PowerPak kept my spirits up the way no emulator ever could.
+Second, I had already developed several reusable code libraries by
+the time of the LJ65 project: the pads, sound, music, and unpkb
+modules and part of shuffle.
+
+By the end of December 2009, it was playable.  But in January 2010,
+it became clear to me that better puns than "Concentration Camp"
+existed.  A couple users of the nesdev BBS objected to such an
+offensive title.  I asked on IRC EFnet#nesdev about better puns,
+and Shiru mentioned something about concentration in the chemical
+sense and needing to work a poison out of one's system.
+
+== Day by day ==
+
+2009-12
+Sat 05: Watched videos of "Dian Shi Mali" and drew some card emblems
+Sun 06: Drew more graphics; started background refresh code
+Mon 07: Finished refresh code; started code for card sprites
+Tue 08: Wrote intro story and designed the logo of the FLP
+Wed 09: Explored opening cut scene options and made Tall Pixel demo
+Thu 10: Colorized emblems and prototyped a 192x96+Tall Pixel still
+Fri 11: Drew arrow images
+Sat 12: Made the pad control the arrow and turn over a card
+Mon 14: Made the opening text crawl
+Tue 15: Made both cards flip back after a second and a half
+Wed 16: Shuffled and dealt five patterns of 10 to 72 cards
+Thu 17: Made matching cards disappear
+Fri 18: Animated unflipping cards; ended 5th round with GSOD
+Sat 19: Began to animate collecting cards; added sound effects
+Sun 20: Drew title screen and added music and speed-up to opening
+Mon 21: Made title screen work and finished collecting animation
+Tue 22: Added difficulty menu for 1-round solitaire
+Thu 24: Made player 1 score count down from 100 on each miss
+Fri 25: Watched a family member to make sure level 5 was not too hard
+Sat 26: Added two-player mode
+Wed 30: Added tune for winning
+
+2010-01
+Fri 01: Began to compose letter of inquiry to bunnyboy
+Sat 02: Added support for both controllers in 2-player
+Tue 05: Learned that developers of original games contact RetroZone
+Sun 10: Made the first public video: youtube.com/watch?v=_FuVTLFxrkw
+Mon 11: New logo for Chosen; exclude level 2 emblems from levels 3, 4
+Mon 18: Blocked A button repeat in 2-player and sketched out CPU AI
+Wed 20: Implemented artificial idiocy
+Thu 21: Realized necessity of denazification; asked for ideas on IRC
+Fri 22: Wrote neurotoxin story based on pitch by Shiru; added vs. CPU
+Sat 30: Made logo for the drug company
+Sun 31: Game ends when 100 misses run out
+
+2010-02
+Sun 07: Worked on menu screens for deluxe
+Thu 11: Worked on web pages
+Fri 12: Explored options for weak DRM on non-public prototypes
+Sun 13: Explored CHR compression options
+Sun 14: Realized I lack IRL friends my own age; may rethink release
+Sat 20: I may be able to save 25% on even 1-bit tiles
+Tue 23: Wrote Python compressor; ratio matches CMM on all but SMB1bg
+Thu 25: Wrote working 6502 decompressor; fills VRAM in half a second
+
+2010-03
+Sun 07: Made background color change on game over
+Mon 08: Made animation on game over
+Tue 09: Fade out in intro; started to write story mode scripts
+Sat 13: Wrote main loop for story mode; added license notices
+Sun 14: Released Concentration Room 0.01
+Tue 23: Laptop died taking days of work; now coding on Windows XP
+Wed 24: Made a tool to shuffle variables to expose buffer overflows
+Thu 25: Started to shuffle each subroutine's memory allocation
+Fri 26: Implemented daily backup procedure
+
+2010-07
+Sun 11: Sara sketched and inked opponents
+Mon 12: Sara painted opponents between rounds of Spyro
+Tue 13: Explored comics compression; Sara wrote opponents' dialogue
+Thu 15: Sketched out DX UI
+Fri 16: Pixel-reduced Sara's character designs
+Sat 17: Displayed opponents on a background, with dialogue below
+Sun 18: Moved pointer out of the way differently; released 0.02
+
+== Trivia ==
+
+* The first ten emblems are fruits and the tools used to grow them,
+  inspired by Nintendo's Animal Crossing series.
+

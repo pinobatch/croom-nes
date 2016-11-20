@@ -1,0 +1,15 @@
+body { background: #FA0; color: #000; margin: 0 }
+.thereisnosuchthingaspaddingauto { margin: 0 auto; width: 35em; position: relative }
+#pgheader { background: #FFF; margin: 0 0 1em 0; padding: 1em 0 1em 0; border-top: 1em solid black }
+ul#headerlist { position: absolute; right: 0; top: 0 }
+ul#headerlist, #headerlist ul { padding: 0; margin: 0.3em 0 }
+#headerlist li { margin-left: 1em; padding: 0 }
+#pgbody { border-bottom: 1em solid black }
+h1 { margin: 0 }
+h1,h2,h3,h4,h5,h6 { font-family: "Wasted Collection", sans-serif }
+ul.horz { padding-left: 0 }
+ul.horz li { display: inline }
+ul.horz li:before { content: " \2022  " }
+ul.horz li:first-child:before { content: "" }
+dt { font-weight: bold }
+dd { margin: 0 0 0.5em 1em; padding: 0 }
