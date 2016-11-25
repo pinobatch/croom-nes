@@ -18,11 +18,11 @@ AS65 = ca65
 LD65 = ld65
 CC = gcc
 ifdef COMSPEC
-DOTEXE=.exe
+DOTEXE := .exe
 EMU := start
 else
-DOTEXE=
-EMU := fceu -input1 gamepad -input2 gamepad
+DOTEXE :=
+EMU := fceux
 endif
 CFLAGS = -std=gnu99 -Wall -DNDEBUG -O
 CFLAGS65 = 
@@ -53,14 +53,14 @@ ConcentrationRoom-$(version).zip: zip.in croom.nes README.html $(objdir)/index.t
 $(objdir)/index.txt: makefile
 	echo Files produced by build tools go here, but caulk goes where? > $@
 
-$(objdir)/%.o: $(srcdir)/%.s $(srcdir)/nes.h $(srcdir)/ram.h
+$(objdir)/%.o: $(srcdir)/%.s $(srcdir)/nes.inc $(srcdir)/global.inc
 	$(AS65) $(CFLAGS65) $< -o $@
 
-$(objdir)/%.shuffle.s: $(srcdir)/%.s $(srcdir)/nes.h $(srcdir)/ram.h
+$(objdir)/%.shuffle.s: $(srcdir)/%.s $(srcdir)/nes.inc $(srcdir)/global.inc
 	tools/shuffle.py $(shufflemode) --pln --print-lengths $< -o $@
 
 $(objdir)/%.o: $(objdir)/%.s
-	$(AS65) $(CFLAGS65) $< -o $@
+	$(AS65) $(CFLAGS65) $< -Isrc -o $@
 
 $(objdir)/ntscPeriods.s: tools/mktables.py
 	$< period $@

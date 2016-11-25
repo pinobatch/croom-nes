@@ -1,5 +1,5 @@
 ; sound.s
-; part of sound engine for LJ65
+; Pently audio engine 0.02
 
 ;;; Copyright (C) 2009 Damian Yerrick
 ;

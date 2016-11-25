@@ -22,8 +22,8 @@
 ; play imperfectly in a realistic manner to keep the game
 ; interesting for human players.
 
-.include "src/nes.h"  ; for KEY_A and bsod code
-.include "src/ram.h"
+.include "nes.inc"  ; for KEY_A and bsod code
+.include "global.inc"
 
 .enum AIState
 START = 0       ; Set curAITimer to the number of random cards to forget

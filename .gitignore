@@ -2,6 +2,7 @@
 *.o
 *~
 *.chr
+croom.prg
 /obj/nes/*.s
 /zip.in
 *.nes.deb

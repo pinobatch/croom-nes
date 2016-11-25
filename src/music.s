@@ -1,5 +1,5 @@
 ; music.s
-; part of sound engine for LJ65
+; Pently audio engine 0.02
 
 ;;; Copyright (C) 2009 Damian Yerrick
 ;
@@ -25,7 +25,7 @@
 .import start_sound
 .export music_playing
 .export init_music, stop_music, update_music, update_music_ch
-.include "src/musicseq.h"
+.include "pentlyseq.inc"
 
 musicPatternPos = psg_sfx_state + 2
 conductorPos = psg_sfx_state + 16

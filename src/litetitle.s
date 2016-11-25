@@ -15,8 +15,8 @@
 ; You should have received a copy of the GNU General Public License
 ; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ;
-.include "src/nes.h"
-.include "src/ram.h"
+.include "nes.inc"
+.include "global.inc"
 
 CREDITS_MODE = 4
 

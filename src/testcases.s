@@ -1,5 +1,5 @@
-.include "src/nes.h"
-.include "src/ram.h"
+.include "nes.inc"
+.include "global.inc"
 
 .segment "CODE"
 .proc puthex

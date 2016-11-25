@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 
 Computer programs have defects.  One of the most common is a buffer
@@ -133,8 +133,8 @@ http://www.cs.arizona.edu/~collberg/Research/Publications/CollbergThomborson99a/
 from __future__ import with_statement
 import sys
 import random
-versionText = """0.02
-Copyright 2010 Damian Yerrick
+versionText = """0.03
+Copyright 2016 Damian Yerrick
 Copying and distribution of this file, with or without
 modification, are permitted in any medium without royalty
 provided the copyright notice and this notice are preserved.
@@ -156,11 +156,11 @@ class BlocksReader(object):
         return ("BlocksReader(%s, %s, %s)"
                 % (repr(self.seq), self.terminator, self.sep))
 
-    def next(self):
+    def __next__(self):
         if self.stopped:
             raise StopIteration
         if self.sep is None:
-            line = self.seq.next()
+            line = next(self.seq)
             if line.strip() == self.terminator:
                 self.stopped = True
                 raise StopIteration
@@ -170,7 +170,7 @@ class BlocksReader(object):
         lines = []
         while True:
             try:
-                line = self.seq.next()
+                line = next(self.seq)
             except StopIteration:
                 self.stopped = True
                 return ''.join(lines)
@@ -193,8 +193,8 @@ class ShuffledReader(object):
     def __iter__(self):
         return self
 
-    def next(self):
-        line = self.seq.next()  # raises StopIteration here
+    def __next__(self):
+        line = next(self.seq)  # raises StopIteration here
         splitLine = line.split(None, 1)
         if len(splitLine) == 0:
             return line
@@ -242,8 +242,8 @@ def main(argv=None):
     parser.add_option("-o", "--output", dest="outfile",
                       help="write shuffled output to OUTFILE", metavar="OUTFILE")
     parser.add_option("-U", "--universal-newlines",
-                      action="store_true", dest="universalNewlines", default=False,
-                      help="convert line endings (CR/LF) in input and output files")
+                      action="store_true", dest="unl", default=False,
+                      help="no-op, ignored for compatibility")
     parser.add_option("--pln", "--preserve-line-numbers",
                       action="store_true", dest="preserveLineNumbers", default=False,
                       help="insert blank lines to compensate for removed .shuffle commands")
@@ -251,8 +251,7 @@ def main(argv=None):
     if options.outfile is None:
         outfp = sys.stdout
     else:
-        outfp = open(options.outfile,
-                     'wt' if options.universalNewlines else 'wb')
+        outfp = open(options.outfile, 'w')
     if options.reverse is False:
         rng = ForwardShuffle()
     elif options.reverse is True:
@@ -265,7 +264,7 @@ def main(argv=None):
         for line in reader:
             outfp.write(line)
     else:
-        readMode = 'rU' if options.universalNewlines else 'rb'
+        readMode = 'r'
         for filename in filenames:
             with open(filename, readMode) as infp:
                 reader = ShuffledReader(infp, rng,
@@ -280,8 +279,8 @@ def main(argv=None):
         product = 1
         for l in reader.factorials:
             product *= math.factorial(l)
-        print >>sys.stderr, "%s = %d" % (lengths, product)
+        print("%s = %d" % (lengths, product), file=sys.stderr)
 
 if __name__=='__main__':
     main()
-##    main('shuffle --pln -U shuffletest.txt -o test.out.txt'.split())
+##    main('shuffle --pln -U ../src/litemain.s -o test.out.txt'.split())

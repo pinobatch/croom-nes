@@ -15,8 +15,8 @@
 ; You should have received a copy of the GNU General Public License
 ; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ;
-.include "src/nes.h"
-.include "src/ram.h"
+.include "nes.inc"
+.include "global.inc"
 .p02
 
 .exportzp psg_sfx_state
@@ -240,16 +240,16 @@ noScrollText:
 ; the opponent in vs. CPU.
 storyStages:
 ;     Diff Noi -- -- Wtxt Wst Ltxt Lst
-  .byt   0, -1, 0, 0,  64,  1,  -1, -1  ;  0: beginner stage
+  .byt   0,<-1, 0, 0,  64,  1, <-1,<-1  ;  0: beginner stage
   .byt   0, 16, 0, 0,  65,  2,  66,  0  ;  1: vs. preschooler
-  .byt   1, -1, 0, 0,  67,  3,  -1, -1  ;  2: easy stage
+  .byt   1,<-1, 0, 0,  67,  3, <-1,<-1  ;  2: easy stage
   .byt   1, 12, 0, 0,  68,  4,  69,  2  ;  3: vs. grade schooler
-  .byt   2, -1, 0, 0,  70,  5,  -1, -1  ;  4: medium stage
+  .byt   2,<-1, 0, 0,  70,  5, <-1,<-1  ;  4: medium stage
   .byt   2,  8, 0, 0,  71,  6,  72,  4  ;  5: vs. middle schooler
-  .byt   3, -1, 0, 0,  73,  7,  -1, -1  ;  2: hard stage
+  .byt   3,<-1, 0, 0,  73,  7, <-1,<-1  ;  2: hard stage
   .byt   3,  8, 0, 0,  74,  8,  75,  6  ;  3: vs. high schooler
-  .byt   4, -1, 0, 0,  76,  9,  -1, -1  ;  4: expert stage
-  .byt   4,  8, 0, 0,  77, -1,  78,  8  ;  5: vs. lab technician
+  .byt   4,<-1, 0, 0,  76,  9, <-1,<-1  ;  4: expert stage
+  .byt   4,  8, 0, 0,  77,<-1,  78,  8  ;  5: vs. lab technician
 
 .segment "CODE"
 --procs--

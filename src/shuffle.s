@@ -15,8 +15,8 @@
 ; You should have received a copy of the GNU General Public License
 ; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ;
-.include "src/ram.h"
-;.include "src/nes.h"  ; for debugging shuffle
+.include "global.inc"
+
 .segment "ZEROPAGE"
 rand0: .res 1
 rand1: .res 1

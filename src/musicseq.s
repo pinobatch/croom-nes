@@ -8,7 +8,7 @@
 ; This file is offered as-is, without any warranty.
 ;
 
-.include "src/musicseq.h"
+.include "pentlyseq.inc"
 
 .segment "RODATA"
 .shuffle --tables--
