@@ -20,31 +20,31 @@
 ;
 ;   Visit http://www.pineight.com/ for more information.
 
-.importzp psg_sfx_state
-.import soundBSS
-.import start_sound
+.importzp pently_zp_state
+.import pentlyBSS
+.import pently_start_sound
 .export music_playing
-.export init_music, stop_music, update_music, update_music_ch
+.export pently_start_music, pently_stop_music, update_music, update_music_ch
 .include "pentlyseq.inc"
 
-musicPatternPos = psg_sfx_state + 2
-conductorPos = psg_sfx_state + 16
-noteEnvVol = soundBSS + 0
-notePitch = soundBSS + 1
-noteRowsLeft = soundBSS + 2
+musicPatternPos = pently_zp_state + 2
+conductorPos = pently_zp_state + 16
+noteEnvVol = pentlyBSS + 0
+notePitch = pentlyBSS + 1
+noteRowsLeft = pentlyBSS + 2
 ; 3 is in sound.s
-musicPattern = soundBSS + 16
-patternTranspose = soundBSS + 17
-noteInstrument = soundBSS + 18
+musicPattern = pentlyBSS + 16
+patternTranspose = pentlyBSS + 17
+noteInstrument = pentlyBSS + 18
 ; 19 is in sound.s
-tempoCounterLo = soundBSS + 48
-tempoCounterHi = soundBSS + 49
-music_tempoLo = soundBSS + 50
-music_tempoHi = soundBSS + 51
-conductorSegno = soundBSS + 52
+tempoCounterLo = pentlyBSS + 48
+tempoCounterHi = pentlyBSS + 49
+music_tempoLo = pentlyBSS + 50
+music_tempoHi = pentlyBSS + 51
+conductorSegno = pentlyBSS + 52
 
-conductorWaitRows = soundBSS + 62
-music_playing = soundBSS + 63
+conductorWaitRows = pentlyBSS + 62
+music_playing = pentlyBSS + 63
 
 .ifdef PAL
 FRAMES_PER_MINUTE = 3000
@@ -62,7 +62,7 @@ durations:
   .byt 1, 2, 3, 4, 6, 8, 12, 16
 
 .segment "CODE"
-.proc init_music
+.proc pently_start_music
   asl a
   tax
   lda songTable,x
@@ -102,7 +102,7 @@ durations:
   rts
 .endproc
 
-.proc stop_music
+.proc pently_stop_music
   lda #0
   sta music_playing
   rts
@@ -295,7 +295,7 @@ isDrumNote:
   stx 5
   tax
   lda drumSFX,x
-  jsr start_sound
+  jsr pently_start_sound
   ldx 5
   jmp skipNote
 

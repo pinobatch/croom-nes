@@ -98,7 +98,7 @@ waitloop:
 .endshuffle
   lda #%00011110
   sta PPUMASK
-  jsr update_sound
+  jsr pently_update
   jsr read_pads
 .shuffle --keys--
   lda new_keys
@@ -367,7 +367,7 @@ notOpeningText:
 .endshuffle
   lda #0
   sta fadeTimer
-  jsr init_music
+  jsr pently_start_music
 .shuffle
   ldx #$3F
   ldy #0
@@ -635,7 +635,7 @@ notPressingUp:
   inc fadeTimer
 notPressingA:
 .endshuffle
-  jsr update_sound
+  jsr pently_update
   lda fadeTimer
   beq :+
   inc fadeTimer
@@ -648,7 +648,7 @@ notPressingA:
   bcs out
   jmp loop
 out:
-  jmp stop_music
+  jmp pently_stop_music
 .endproc
 .endshuffle
 

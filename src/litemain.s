@@ -19,14 +19,14 @@
 .include "global.inc"
 .p02
 
-.exportzp psg_sfx_state
+.exportzp pently_zp_state
 
 .segment "ZEROPAGE"
 .shuffle
 nmis: .res 1
 cur_keys: .res 2
 new_keys: .res 2
-psg_sfx_state: .res 32
+pently_zp_state: .res 32
 .endshuffle
 
 .segment "BSS"
@@ -109,7 +109,7 @@ clear_zp:
   inx
   stx rand0
 
-  jsr init_sound
+  jsr pently_init
   ; Wait for the PPU to warm up (part 2 of 2)
 vwait2:
   bit PPUSTATUS

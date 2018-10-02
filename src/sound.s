@@ -21,9 +21,9 @@
 ;   Visit http://www.pineight.com/ for more information.
 
 .import periodTableLo, periodTableHi
-.importzp psg_sfx_state  ; a 32 byte buffer in zp?
+.importzp pently_zp_state  ; a 32 byte buffer in zp?
 .import update_music, update_music_ch, music_playing
-.export init_sound, start_sound, update_sound, soundBSS
+.export pently_init, pently_start_sound, pently_update, pentlyBSS
 
 ; turn this off to force all square wave sound effects to
 ; be played on $4000 (and not $4004)
@@ -33,21 +33,21 @@
 SNDCHN = $4015
 
 .segment "BSS"
-soundBSS: .res 64
+pentlyBSS: .res 64
 
-psg_sfx_datalo = psg_sfx_state + 0
-psg_sfx_datahi = psg_sfx_state + 1
-psg_sfx_lastfreqhi = psg_sfx_state + 18
-psg_sfx_remainlen = psg_sfx_state + 19
-psg_sfx_rate = soundBSS + 3
-psg_sfx_ratecd = soundBSS + 19
+psg_sfx_datalo = pently_zp_state + 0
+psg_sfx_datahi = pently_zp_state + 1
+psg_sfx_lastfreqhi = pently_zp_state + 18
+psg_sfx_remainlen = pently_zp_state + 19
+psg_sfx_rate = pentlyBSS + 3
+psg_sfx_ratecd = pentlyBSS + 19
 
 .segment "CODE"
 
 ;;
 ; Initializes all sound channels.
 ;
-.proc init_sound
+.proc pently_init
   lda #$0F
   sta SNDCHN
   lda #$30
@@ -78,7 +78,7 @@ psg_sfx_ratecd = soundBSS + 19
 ; Starts a sound effect.
 ; @param A sound effect number (0-63)
 ;
-.proc start_sound
+.proc pently_start_sound
 snddatalo = 0
 snddatahi = 1
 sndchno = 2
@@ -88,21 +88,21 @@ sndrate = 4
   asl a
   asl a
   tax
-  lda psg_sound_table,x
+  lda pently_sfx_table,x
   sta snddatalo
-  lda psg_sound_table+1,x
+  lda pently_sfx_table+1,x
   sta snddatahi
-  lda psg_sound_table+2,x
+  lda pently_sfx_table+2,x
   and #$0C
   sta sndchno
-  lda psg_sound_table+2,x
+  lda pently_sfx_table+2,x
   lsr a
   lsr a
   lsr a
   lsr a
   sta sndrate
   
-  lda psg_sound_table+3,x
+  lda pently_sfx_table+3,x
   sta sndlen
 
   ; split up square wave sounds between $4000 and $4004
@@ -141,7 +141,7 @@ ch_not_full:
 ;;
 ; Updates sound effect channels.
 ;
-.proc update_sound
+.proc pently_update
   jsr update_music
   ldx #12
 loop:
@@ -227,7 +227,7 @@ no_change_to_hi_period:
 .endproc
 
 .segment "RODATA"
-psg_sound_table:
+pently_sfx_table:
   .addr turn_snd
   .byt 0, 6
   .addr shift_snd

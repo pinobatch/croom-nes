@@ -65,9 +65,9 @@ DONE
 ; unpkb methods
 .global PKB_unpackblk
 
-; sound/music methods
-.global init_sound, start_sound, update_sound
-.global init_music, start_music, stop_music
+; Pently audio driver methods
+.global pently_init, pently_start_sound, pently_update
+.global pently_start_music, start_music, pently_stop_music
 
 ; bcd methods
 .global bcd8bit, test_bcd8bit

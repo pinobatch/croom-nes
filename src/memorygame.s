@@ -144,7 +144,7 @@ notRight:
 :
 .shuffle
   jsr drawCardSprites
-  jsr update_sound
+  jsr pently_update
 .endshuffle
 
   ; all done; now wait for vblank and blit the damn things
@@ -251,7 +251,7 @@ done:
   and #KEY_B
   beq notB
   lda #1
-  jsr start_sound
+  jsr pently_start_sound
   jsr randomCard
   cpy #72
   bcc :+
@@ -316,7 +316,7 @@ notAI:
   sta curState
 --setFlippingState--
   lda #0
-  jsr start_sound
+  jsr pently_start_sound
 --setFlippingState--
   lda #$08
   sta card0FlipFrame
@@ -393,7 +393,7 @@ hasCard2:
   beq :+
   lda #5
 :
-  jsr start_sound
+  jsr pently_start_sound
   lda #1
   sta isCombo
   lda #PlayState::COLLECTING
@@ -401,7 +401,7 @@ hasCard2:
 isNotMatch:
 .shuffle --toUnflipping--
   lda #2
-  jsr start_sound
+  jsr pently_start_sound
 --toUnflipping--
   lda #0
   sta isCombo
@@ -439,10 +439,10 @@ dgafMatch:
   sta bgcolor
 --setStates--
   lda #7
-  jsr start_sound
+  jsr pently_start_sound
 --setStates--
   lda #8
-  jsr start_sound
+  jsr pently_start_sound
 --setStates--
   lda #PlayState::GAME_OVER
   sta curState
@@ -461,7 +461,7 @@ notLoseScore:
   bne notFirstUnflipFrame
 .shuffle --startToUnflip--
   lda #3
-  jsr start_sound
+  jsr pently_start_sound
 --startToUnflip--
   ldy selectedCards
 .shuffle
@@ -659,10 +659,10 @@ noCardsLeft:
   sta bgcolor
 --setstates--
   lda #7
-  jsr start_sound
+  jsr pently_start_sound
 .endshuffle
   lda #8
-  jmp start_sound
+  jmp pently_start_sound
 setWin:
 .shuffle --setstates--
   lda #180
@@ -672,7 +672,7 @@ setWin:
   sta curState
 .endshuffle
   lda #1
-  jmp init_music
+  jmp pently_start_music
 secondCardNeedsUnflipped:
   sta selectedCards
   lda #$FF
@@ -721,7 +721,7 @@ pressedAPlusB:
   stx activePad
   lda #1
 .endshuffle
-  jsr start_sound
+  jsr pently_start_sound
 
 done:
   ; Cancel autorepeat so that keypresses from logging in don't
