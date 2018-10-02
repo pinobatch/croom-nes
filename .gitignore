@@ -11,6 +11,7 @@ croom.prg
 __pycache__/
 *.pyc
 /croom.nes
+/croom-*.zip
 
 # this is NES homebrew, not DSiWare
 *.DS_Store

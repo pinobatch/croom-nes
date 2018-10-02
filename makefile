@@ -8,8 +8,9 @@
 # provided the copyright notice and this notice are preserved.
 # This file is offered as-is, without any warranty.
 #
-version = 0.02
-objlist = litemain litetitle liteopponents \
+title := croom
+version := 0.02a
+objlist := litemain litetitle liteopponents \
           memorygame drawcards shuffle aidiocy \
           pads sound music musicseq unpkb bcd
 
@@ -19,16 +20,27 @@ LD65 = ld65
 CC = gcc
 ifdef COMSPEC
 DOTEXE := .exe
-EMU := start
 else
 DOTEXE :=
-EMU := fceux
 endif
+DEBUGEMU := ~/.wine/drive_c/Program\ Files\ \(x86\)/FCEUX/fceux.exe
+EMU := fceux
 CFLAGS = -std=gnu99 -Wall -DNDEBUG -O
 CFLAGS65 = 
 objdir = obj/nes
 srcdir = src
 imgdir = tilesets
+
+# The Windows Python installer puts py.exe in the path, but not
+# python3.exe, which confuses MSYS Make.  COMSPEC will be set to
+# the name of the shell on Windows and not defined on UNIX.
+ifdef COMSPEC
+DOTEXE:=.exe
+PY:=py -3
+else
+DOTEXE:=
+PY:=python3
+endif
 
 # -f while debugging code; -r while adding shuffle markup;
 # neither once a module has stabilized
@@ -36,22 +48,34 @@ shufflemode = -r
 
 objlistntsc = $(foreach o,$(objlist),$(objdir)/$(o).shuffle.o) $(objdir)/ntscPeriods.o
 
-.PHONY: run clean dist zip
+.PHONY: run clean dist zip all debug
 
-run: croom.nes
+run: $(title).nes
 	$(EMU) $<
+debug: $(title).nes
+	$(DEBUGEMU) $<
+
+# Distribution
 
 # Actually this depends on every single file in zip.in, but currently
 # we use changes to croom.nes, makefile, and README as a heuristic
 # for when something was changed.  Limitation: it won't see changes
 # to docs or tools.
 dist: zip
-zip: ConcentrationRoom-$(version).zip
-ConcentrationRoom-$(version).zip: zip.in croom.nes README.html $(objdir)/index.txt
+zip: $(title)-$(version).zip
+$(title)-$(version).zip: zip.in $(title).nes README.md $(objdir)/index.txt
 	zip -9 -u $@ -@ < $<
 
+# Build zip.in from the list of files in the Git tree
+zip.in:
+	git ls-files | grep -e "^[^.]" > $@
+	echo $(title).nes >> $@
+	echo zip.in >> $@
+
 $(objdir)/index.txt: makefile
-	echo Files produced by build tools go here, but caulk goes where? > $@
+	echo "Files produced by build tools go here, but caulk goes where?" > $@
+
+# the program
 
 $(objdir)/%.o: $(srcdir)/%.s $(srcdir)/nes.inc $(srcdir)/global.inc
 	$(AS65) $(CFLAGS65) $< -o $@
@@ -68,12 +92,22 @@ $(objdir)/ntscPeriods.s: tools/mktables.py
 $(objdir)/palPeriods.s: tools/mktables.py
 	$< period $@
 
-$(objdir)/litetitle.shuffle.o: $(srcdir)/litetitle.pkb
 
+# incbins
+$(objdir)/litetitle.shuffle.o: $(srcdir)/litetitle.pkb
 $(objdir)/liteopponents.shuffle.o: $(srcdir)/litetable.pkb
 
-map.txt croom.prg: NROM.ini $(objlistntsc)
-	$(LD65) -C $^ -m map.txt -o croom.prg
+# the executable
+
+all: $(title).nes
+
+map.txt $(title).prg: nrom128.x $(objlistntsc)
+	$(LD65) -C $^ -m map.txt -o $(title).prg
+
+%.nes: %.prg %.chr
+	cat $^ > $@
+
+# graphics conversion
 
 $(objdir)/titlegfx.chr: $(imgdir)/titlegfx.png
 	tools/pilbmp2nes.py $< $@
@@ -81,12 +115,10 @@ $(objdir)/titlegfx.chr: $(imgdir)/titlegfx.png
 $(objdir)/gamegfx.chr: $(imgdir)/gamegfx.png
 	tools/pilbmp2nes.py $< $@
 
-%.nes: %.prg %.chr
-	cat $^ > $@
-
-croom.chr: $(objdir)/titlegfx.chr $(objdir)/gamegfx.chr
+$(title).chr: $(objdir)/titlegfx.chr $(objdir)/gamegfx.chr
 	cat $^ > $@
 
 clean:
-	rm -r $(objdir)/*
+	-rm -r $(objdir)/*
+	-rm zip.in
 
