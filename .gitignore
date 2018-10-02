@@ -10,6 +10,7 @@ croom.prg
 /nsfmap.txt
 __pycache__/
 *.pyc
+/croom.nes
 
 # this is NES homebrew, not DSiWare
 *.DS_Store
