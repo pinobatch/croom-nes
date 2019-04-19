@@ -10,7 +10,7 @@
 
 .include "pentlyseq.inc"
 
-.segment "RODATA"
+.segment "PENTLYDATA"
 .shuffle --tables--
 
 pently_sfx_table:
@@ -108,10 +108,6 @@ die2_snd:
   .byt $04, $0E
   .byt $03, $0E
   .byt $02, $0E, $01, $0E, $01, $0E
-
---tables--
-pently_drums:
-  .byt 0, $80
 
 --tables--
 pently_instruments:

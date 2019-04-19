@@ -55,5 +55,5 @@ PENTLY_INITIAL_4011 = 32
 pently_zptemp = $0000
 ; .importzp pently_zptemp
 
-.define PENTLY_CODE "CODE"
-.define PENTLY_RODATA "RODATA"
+.define PENTLY_CODE "PENTLYCODE"
+.define PENTLY_RODATA "PENTLYDATA"
