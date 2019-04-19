@@ -79,12 +79,9 @@ rememberState: .res FIELD_WID*FIELD_HT
 .proc randomCard
 range = 1
 
-  ldy #8
-  jsr random  ; about 8*48 cycles; fills rand3
   jsr countRemainingCards  ; about 13*72 cycles
   tya
-  beq ohshi  ; don't freeze on zero cards
-not_ohshi:
+  beq zero_cards  ; don't freeze on zero cards
 
   ldx #$00
 calcLog2:
@@ -93,7 +90,7 @@ calcLog2:
   bcc calcLog2
   ror a
   sta range
-  lda rand3
+  jsr random
 divloop:
   cmp range
   bcc :+
@@ -115,7 +112,7 @@ findCardLoop:
 emptySpace:
   dey
   bpl findCardLoop
-ohshi:
+zero_cards:
   ldy #$FF
 found:
   rts
@@ -162,9 +159,7 @@ aiSteps:
   dec curAITimer
   
   ; choose a random position on the board and forget it
-  ldy #8
   jsr random
-  lda rand3
   cmp #144
   bcc :+
   sbc #144
@@ -328,13 +323,10 @@ findMatchLoop:
   dey
   bpl findMatchLoop
 
-  ; Defensive programming: For some reason we didn't find the match,
-  ; so look for a nearby face-down card.
+  ; If we didn't find the match, look for a nearby face-down card.
   ; reminder: $00 removed; $40 flipping; $80 face down; $C0 face up
 notFoundMatch:
-  ldy #1
   jsr random
-  lda rand3
   and #%00000001
   beq :+
   lda #(FIELD_WID - 2)*FIELD_HT

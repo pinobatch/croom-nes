@@ -23,44 +23,46 @@ rand1: .res 1
 rand2: .res 1
 rand3: .res 1
 
-.segment "CODE"
-.shuffle --procs--
-;; random
-; Uses the crc32 polynomial to generate Y
-; pseudorandom bits as the low_order bits of rand3.
-; Average 48 cycles per bit.
-; FIXME: May want to use the simpler polynomial version from
-; try 2 if it too is full-period.
+.segment "LIBCODE"
+;;
+; cc65 PRNG by Sidney Cadot - sidney@ch.twi.tudelft.nl
+; license: zlib
 ;
 .proc random
-  asl rand3
-  rol rand2
-  rol rand1
-  rol rand0
-  bcc @no_xor
-.shuffle --crcbytes--
+random:
+  ; Multiply seed by 0x01010101
+  clc
   lda rand0
-  eor #$04
-  sta rand0
---crcbytes--
-  lda rand1
-  eor #$c1
+  adc rand1
   sta rand1
---crcbytes--
-  lda rand2
-  eor #$1d
+  adc rand2
   sta rand2
---crcbytes--
-  lda rand3
-  eor #$b7
+  adc rand3
   sta rand3
-.endshuffle
-@no_xor:
-  dey
-  bne random
+  ; Add 0x31415927
+  clc
+  lda rand0
+  adc #$27
+  sta rand0
+  lda rand1
+  adc #$59
+  sta rand1
+  lda rand2
+  adc #$41
+  sta rand2
+  .if 0
+    ; Modified by Damian Yerrick: Don't clobber X
+    and #$7f   ; Suppress sign bit (make it positive)
+    tax
+  .endif
+  lda rand3
+  adc #$31
+  sta rand3  ; A = bits 31-24
   rts
 .endproc
---procs--
+
+.segment "CODE"
+.shuffle --procs--
 
 .proc findPattern
 patternBase = 0
@@ -124,9 +126,8 @@ initialCardsBase = 6
 
   ; STEP 1: Seed the PRNG by mixing in the current time
   lda nmis
-  eor rand3
-  sta rand3
-  ldy #8
+  eor rand0
+  sta rand0
   jsr random
 
   ; STEP 2: Clear the board
@@ -173,13 +174,11 @@ gatherLoop:
 
   ; STEP 4: Swap each card with a randomly chosen card
 swapLoop:
-  ldy #6
   jsr random
 
   ; the starting card number is ((rand() % 64) + shufflePos + 1) % nCards
-  lda #$3F
 .shuffle
-  and rand3
+  and #$3F
   sec
 .endshuffle
   adc shufflePos

@@ -593,7 +593,7 @@ tensIsZero:
   sta scoreXferDst
   lda #$23
   sta PPUADDR
-  lda foxBoxAddrLo,x
+  lda scoreBoxAddrLo,x
   sta PPUADDR
   ldy #0
 :
@@ -605,7 +605,7 @@ tensIsZero:
 
   lda #$23
   sta PPUADDR
-  lda foxBoxAddrLo,x
+  lda scoreBoxAddrLo,x
   ora #$20
   sta PPUADDR
   ldy #0
@@ -621,14 +621,13 @@ noScoreXfer:
 .endproc
 --procs--
 .proc loadPlayScreen
-.shuffle --lpsStart--
-  ldx #128
-  stx cursor_sprite_x
---lpsStart--
-  ldx #192
-  stx cursor_sprite_y
---lpsStart--  
+.shuffle
   lda #VBLANK_NMI
+  ldx #192
+.endshuffle
+.shuffle
+  sta cursor_sprite_x
+  stx cursor_sprite_y
   sta PPUCTRL
 .endshuffle
   ldx #0
@@ -816,7 +815,7 @@ drawPassController:
   ; (.[].......0.)
   ldy curTurn
 .shuffle
-  lda foxBoxSprX,y
+  lda scoreBoxSprX,y
   clc
 .endshuffle
   adc #24
@@ -1360,7 +1359,7 @@ loop2:
 --coords--
   ldx curTurn
 .shuffle
-  lda foxBoxSprX,x
+  lda scoreBoxSprX,x
   sec
 .endshuffle
   sbc collectingX
@@ -1418,10 +1417,10 @@ game_palette:
   ; screen can be black during board setup.  It turns white again
   ; after blitCardSprites sets up the sprite palette.
 --vars--
-foxBoxAddrLo:  ; foxbox goes at $23xx in vram
+scoreBoxAddrLo:  ; scoreBox goes at $23xx in vram
   .byt $82, $90
 --vars--
-foxBoxSprX:    ; where tiles go
+scoreBoxSprX:    ; where tiles go
   .byt $20, $90
 --vars--
 card_palettes:
