@@ -19,14 +19,11 @@
 .include "global.inc"
 .p02
 
-.exportzp pently_zp_state
-
 .segment "ZEROPAGE"
 .shuffle
 nmis: .res 1
 cur_keys: .res 2
 new_keys: .res 2
-pently_zp_state: .res 32
 .endshuffle
 
 .segment "BSS"
@@ -61,8 +58,8 @@ storyStage: .res 1
 .shuffle
   stx PPUCTRL    ; disable vblank NMI
   stx PPUMASK    ; disable rendering (and rendering-triggered mapper IRQ)
-.endshuffle
   lda #$40
+.endshuffle
 .shuffle
   sta $4017      ; disable frame IRQ
   stx $4010      ; disable DPCM IRQ

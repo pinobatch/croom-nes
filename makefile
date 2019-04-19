@@ -12,7 +12,7 @@ title := croom
 version := 0.02a
 objlist := litemain litetitle liteopponents \
           memorygame drawcards shuffle aidiocy \
-          pads sound music musicseq unpkb bcd
+          pads pentlysound pentlymusic musicseq unpkb bcd
 
 CC65 = /usr/local/bin
 AS65 = ca65
@@ -81,19 +81,18 @@ $(objdir)/%.o: $(srcdir)/%.s $(srcdir)/nes.inc $(srcdir)/global.inc
 	$(AS65) $(CFLAGS65) $< -o $@
 
 $(objdir)/%.shuffle.s: $(srcdir)/%.s $(srcdir)/nes.inc $(srcdir)/global.inc
-	tools/shuffle.py $(shufflemode) --pln --print-lengths $< -o $@
+	$(PY) tools/shuffle.py $(shufflemode) --pln --print-lengths $< -o $@
 
 $(objdir)/%.o: $(objdir)/%.s
 	$(AS65) $(CFLAGS65) $< -Isrc -o $@
 
-$(objdir)/ntscPeriods.s: tools/mktables.py
-	$< period $@
+# extra headers
 
-$(objdir)/palPeriods.s: tools/mktables.py
-	$< period $@
-
+$(objdir)/pentlysound.shuffle.o $(objdir)/pentlymusic.shuffle.o: \
+  $(objdir)/pentlybss.inc
 
 # incbins
+
 $(objdir)/litetitle.shuffle.o: $(srcdir)/litetitle.pkb
 $(objdir)/liteopponents.shuffle.o: $(srcdir)/litetable.pkb
 $(objdir)/litemain.shuffle.o: $(objdir)/titlegfx.chr $(objdir)/gamegfx.chr
@@ -108,10 +107,18 @@ map.txt $(title).nes: nrom128.x $(objlistntsc)
 # graphics conversion
 
 $(objdir)/%.chr: $(imgdir)/%.png
-	tools/pilbmp2nes.py $< $@
+	$(PY) tools/pilbmp2nes.py $< $@
+
+# audio conversion
+
+$(objdir)/pentlybss.inc: $(srcdir)/pentlyconfig.inc
+	$(PY) tools/pentlybss.py $< pentlymusicbase -o $@
+
+$(objdir)/ntscPeriods.s: tools/mktables.py
+	$(PY) $< period $@
 
 # housekeeping
 
 clean:
-	-rm -r $(objdir)/*
+	-rm -r $(objdir)/*.s $(objdir)/*.inc $(objdir)/*.chr $(objdir)/*.o
 	-rm zip.in

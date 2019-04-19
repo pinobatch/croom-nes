@@ -3,6 +3,7 @@
 *~
 *.chr
 /obj/nes/*.s
+/obj/nes/*.inc
 /zip.in
 *.nes.deb
 /map.txt
