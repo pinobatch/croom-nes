@@ -766,7 +766,8 @@ coprNoticeText:
   .byt "came without source code,",$0A
   .byt "it may be pirated.",$0A
 .endif
-  .byt "Visit pineight.com/nes",$0A,$00
+  .byt "pineight.com/nes",$0A
+  .byt "patreon.com/pineight",$0A,$00
 --arrays--
 twoPlayerText:
   .byt "Press the A and B Buttons",$0A
@@ -792,9 +793,8 @@ defaultLoseText:
 unimplementedText:
   .byt "UNDER CONSTRUCTION",$0A,$0A
   .byt "This part isn't made yet.",$0A
-  .byt "To get it done faster, send",$0A
-  .byt "your bribe through PayPal",$0A
-  .byt "to tepples@spamcop.net",$0A,$00
+  .byt "Patrons get first dibs on my",$0A
+  .byt "time: patreon.com/pineight",$0A,$00
 --arrays--
 endingText:
   .byt "Good news!",$0A
