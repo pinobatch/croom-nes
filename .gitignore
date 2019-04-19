@@ -2,7 +2,6 @@
 *.o
 *~
 *.chr
-croom.prg
 /obj/nes/*.s
 /zip.in
 *.nes.deb
@@ -15,5 +14,3 @@ __pycache__/
 
 # this is NES homebrew, not DSiWare
 *.DS_Store
-
-

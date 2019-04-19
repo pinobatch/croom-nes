@@ -73,7 +73,7 @@ zip.in:
 	echo zip.in >> $@
 
 $(objdir)/index.txt: makefile
-	echo "Files produced by build tools go here, but caulk goes where?" > $@
+	echo "Files produced by build tools go in this directory." > $@
 
 # the program
 
@@ -96,29 +96,22 @@ $(objdir)/palPeriods.s: tools/mktables.py
 # incbins
 $(objdir)/litetitle.shuffle.o: $(srcdir)/litetitle.pkb
 $(objdir)/liteopponents.shuffle.o: $(srcdir)/litetable.pkb
+$(objdir)/litemain.shuffle.o: $(objdir)/titlegfx.chr $(objdir)/gamegfx.chr
 
 # the executable
 
 all: $(title).nes
 
-map.txt $(title).prg: nrom128.x $(objlistntsc)
-	$(LD65) -C $^ -m map.txt -o $(title).prg
-
-%.nes: %.prg %.chr
-	cat $^ > $@
+map.txt $(title).nes: nrom128.x $(objlistntsc)
+	$(LD65) -C $^ -m map.txt -o $(title).nes
 
 # graphics conversion
 
-$(objdir)/titlegfx.chr: $(imgdir)/titlegfx.png
+$(objdir)/%.chr: $(imgdir)/%.png
 	tools/pilbmp2nes.py $< $@
 
-$(objdir)/gamegfx.chr: $(imgdir)/gamegfx.png
-	tools/pilbmp2nes.py $< $@
-
-$(title).chr: $(objdir)/titlegfx.chr $(objdir)/gamegfx.chr
-	cat $^ > $@
+# housekeeping
 
 clean:
 	-rm -r $(objdir)/*
 	-rm zip.in
-

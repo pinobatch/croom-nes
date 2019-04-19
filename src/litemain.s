@@ -344,3 +344,8 @@ storyStages:
   jmp scrollOpeningText
 .endproc
 .endshuffle
+
+
+.segment "CHR"
+.incbin "obj/nes/titlegfx.chr"
+.incbin "obj/nes/gamegfx.chr"
