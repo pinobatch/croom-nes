@@ -78,10 +78,7 @@ waitloop:
   lda #52
   sta OAM+7
 .endshuffle  
-  lda nmis
-:
-  cmp nmis
-  beq :-
+  jsr ppu_wait_vblank
   ldy #0
 .shuffle --bgbackon--
   sty PPUSCROLL
@@ -227,14 +224,11 @@ difficultyOtherButton:
 --procs--
 
 .proc titleBlitMenu
-  lda nmis
-:
-  cmp nmis
-  beq :-
-  lda PPUSTATUS
+  jsr ppu_wait_vblank
 .shuffle
   lda #$22
   ldx #$00
+  bit PPUSTATUS
 .endshuffle
   sta PPUADDR
   stx PPUADDR
@@ -381,20 +375,14 @@ notOpeningText:
 .shuffle
   sty PPUADDR
   lda #$17  ; initial background color
+  ldx #$20  ; address of nametable to clear
 .endshuffle
-  sta PPUDATA
-  lda #$20
-  sta PPUADDR
 .shuffle
-  sty PPUADDR
-  tya
+  sta PPUDATA
+  ldy #$00
 .endshuffle
-clear_nt:
-  .repeat 4
-    sta PPUDATA
-  .endrepeat
-  dey
-  bne clear_nt
+  tya
+  jsr ppu_clear_nt
 
 ; data is in 2-byte packets.
 ; byte 0:
@@ -447,20 +435,8 @@ tileIsEmpty:
   iny
   bpl setup_oam
 setup_oam_done:
-
-  lda #$F0
-clearTheRest:
-  sta OAM,x
-  inx
-  inx
-  inx
-  inx
-  bne clearTheRest
-
-  lda nmis
-:
-  cmp nmis
-  beq :-
+  jsr ppu_clear_oam
+  jsr ppu_wait_vblank
 
 .shuffle
   lda #VBLANK_NMI
@@ -474,16 +450,13 @@ clearTheRest:
   stx blankLinesAfterEndOfText
 .endshuffle
 
-  lda nmis
-:
-  cmp nmis
-  beq :-
+  jsr ppu_wait_vblank
   ldx #0
 .shuffle
-  stx $2003
+  stx OAMADDR
   lda #>OAM
 .endshuffle
-  sta $4014
+  sta OAM_DMA
   jsr read_pads
 
 loop:
@@ -508,10 +481,7 @@ notNewRow:
   sta yscroll
 noYDown:
   
-  lda nmis
-:
-  cmp nmis
-  beq :-
+  jsr ppu_wait_vblank
   lda PPUSTATUS
 
   ; rewrite the palette
@@ -597,18 +567,13 @@ textLineFinished:
   sta srcAddr+1
 dontWriteNewRow:
 
-  lda #0
-  sta PPUSCROLL
 .shuffle
+  ldx #0
   ldy yscroll
-  ldx #VBLANK_NMI
-  lda #%00011110
+  lda #VBLANK_NMI|BG_0000|OBJ_0000
+  sec
 .endshuffle
-.shuffle
-  sty PPUSCROLL
-  stx PPUCTRL
-  sta PPUMASK
-.endshuffle
+  jsr ppu_screen_on
 
   jsr read_pads
 .shuffle --keyz--

@@ -37,39 +37,31 @@ palette = 10
   sty baseY
   tax
   lda opponentShapeOffsets,x
-  tax
-  ldy #0
+  tay
+  ldx #0
 copypal:
-  lda opponentShape0,x
-  sta palette,y
+  lda opponentShape0,y
+  sta palette,x
   inx
   iny
-  cpy #6
+  cpx #6
   bcc copypal
-  ldy #0
-  ;C4B1 breakpoint here
+  ldx #0
 opcodeloop:
-  lda opponentShape0,x
+  lda opponentShape0,y
   bne notBail
-  lda #$F0
-:
-  sta OAM,y
-  iny
-  iny
-  iny
-  iny
-  bne :-
-  rts
-notBail:
+    jmp ppu_clear_oam
+  notBail:
+
   and #$0F
   sta nTiles
-  lda opponentShape0,x
+  lda opponentShape0,y
   and #$40
   asl a
   rol a
   rol a
   sta attr2
-  lda opponentShape0,x
+  lda opponentShape0,y
   bmi isDown
   
   lda #1
@@ -86,39 +78,39 @@ isDown:
   lda #0
 haveDeltaX:
   sta deltaX
-  inx
+  iny
   clc
-  lda opponentShape0,x
-  inx
+  lda opponentShape0,y
+  iny
   adc baseX
   sta attr3
   clc
-  lda opponentShape0,x
-  inx
+  lda opponentShape0,y
+  iny
   adc baseY
   sta attr0
-  lda opponentShape0,x
-  inx
+  lda opponentShape0,y
+  iny
   sta attr1
 tileloop:
   lda attr0
-  sta OAM,y
-  iny
+  sta OAM,x
+  inx
   clc
   adc deltaY
   sta attr0
   lda attr1
-  sta OAM,y
-  iny
+  sta OAM,x
+  inx
   clc
   adc deltaTile
   sta attr1
   lda attr2
-  sta OAM,y
-  iny
+  sta OAM,x
+  inx
   lda attr3
-  sta OAM,y
-  iny
+  sta OAM,x
+  inx
   clc
   adc deltaX
   sta attr3
@@ -212,10 +204,7 @@ dstHi = 15
   sta src+1
   
   ; set up palette
-  lda nmis
-:
-  cmp nmis
-  beq :-
+  jsr ppu_wait_vblank
   ldy #$3F
   lda #$00
   ldx #7
@@ -260,13 +249,9 @@ dstHi = 15
   sta dstLo
 
 frameLoop:
-  lda nmis
-:
-  cmp nmis
-  beq :-
+  jsr ppu_wait_vblank
   
   ; draw another letter if needed
-  
   ldy #0
   lda (src),y
   beq noLetter
@@ -292,18 +277,18 @@ isNewline:
   bcc noLetter
   inc dstHi
 
-
 noLetter:
-  lda #0
-  sta PPUSCROLL
-  sta PPUSCROLL
-  sta OAMADDR
+
+.shuffle
+  ldx #0
+  ldy #0
   lda #>OAM
+  sec
+.endshuffle
+  stx OAMADDR
   sta OAM_DMA
-  lda #VBLANK_NMI
-  sta PPUCTRL
-  lda #BG_ON|OBJ_ON
-  sta PPUMASK
+  lda #VBLANK_NMI|BG_0000|OBJ_0000
+  jsr ppu_screen_on
 
   jsr read_pads
   lda new_keys

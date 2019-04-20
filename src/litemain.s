@@ -82,18 +82,16 @@ vwait1:
   ; 29000 cycles to burn without touching the PPU.  So we have time
   ; to initialize some of RAM to known values.
   ; Ordinarily the "new game" initializes everything that the game
-  ; itself needs, so we'll just do zero page and shadow OAM.
+  ; itself needs, so we'll just do zero page.
 .shuffle
-  ldy #$00
-  lda #$F0
   ldx #$00
+  txa
 .endshuffle
 clear_zp:
 .shuffle
-  sty $00,x
-  sta OAM,x
-.endshuffle
+  sta $00,x
   inx
+.endshuffle
   bne clear_zp
   
   ; Initialize the randomizer

@@ -156,10 +156,7 @@ notRight:
   ldx #15
 .endif
 mainSlowdown:
-  lda nmis
-:
-  cmp nmis
-  beq :-
+  jsr ppu_wait_vblank
 .if ::USE_SELECT_FOR_SLOWDOWN
   dex
   bne mainSlowdown

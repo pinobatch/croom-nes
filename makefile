@@ -12,7 +12,7 @@ title := croom
 version := 0.02a
 objlist := litemain litetitle liteopponents \
           memorygame drawcards shuffle aidiocy \
-          pads pentlysound pentlymusic musicseq unpkb bcd
+          pads ppuclear unpkb bcd pentlysound pentlymusic musicseq
 
 CC65 = /usr/local/bin
 AS65 = ca65

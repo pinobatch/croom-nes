@@ -631,6 +631,10 @@ noScoreXfer:
   sta PPUCTRL
 .endshuffle
   ldx #0
+  stx collectingY+0
+  stx collectingY+1
+  stx collectingX+0
+  stx collectingX+1
 .shuffle
   stx PPUMASK
   lda #$20
@@ -709,10 +713,7 @@ main_area_rowloop:
   
   ; wait for vblank to set the palette so that there isn't
   ; rainbow garbage
-  lda nmis
-:
-  cmp nmis
-  bcc :-
+  jsr ppu_wait_vblank
 
 .shuffle
   lda #$3F
@@ -1279,7 +1280,7 @@ loop1:
 --coords--
   lda collectingY+1
   sec
-  sbc collectingY
+  sbc collectingY+0
   sta collectingDY
 .endshuffle
 
@@ -1313,18 +1314,18 @@ loop2:
 .proc clockCollecting1Animation
 .shuffle --coords--
 .shuffle
-  lda collectingY
+  lda collectingY+0
   clc
 .endshuffle
   adc collectingDY
-  sta collectingY
+  sta collectingY+0
 --coords--
 .shuffle
-  lda collectingX
+  lda collectingX+0
   clc
 .endshuffle
   adc collectingDX
-  sta collectingX
+  sta collectingX+0
 --coords--
 .shuffle
   lda collectingY+1
