@@ -36,6 +36,7 @@ DRAW_REMEMBERED_BACKS = 0
 
 ; Various tile indices
 BLANK_TILE = $00
+OUTSIDE_TABLE_TILE = $03
 CARD_BACK_TILE = $04
 ARROW_TILE = $06
 CARDCORNERS_BASE = $20
@@ -360,6 +361,35 @@ notD:
   sta setile
 notDR:
 
+  ; All the border tiles are calculated.  Time to actually put it
+  ; in the buffer.
+
+  ldx popslide_used
+  lda card_dst_hi
+  sta popslide_buf+0,x
+  sta popslide_buf+7,x
+  sta popslide_buf+14,x
+  sta popslide_buf+21,x
+  lda card_dst_lo
+  sta popslide_buf+1,x
+  clc
+  adc #1
+  sta popslide_buf+8,x
+  adc #1
+  sta popslide_buf+15,x
+  adc #1
+  sta popslide_buf+22,x
+  lda #$83  ; 4 bytes, down
+  sta popslide_buf+2,x
+  sta popslide_buf+9,x
+  sta popslide_buf+16,x
+  sta popslide_buf+23,x
+
+col0 = popslide_buf+3
+col1 = popslide_buf+10
+col2 = popslide_buf+17
+col3 = popslide_buf+24
+
   lda boardState,y  ; If there's a card here, put it here
   bmi cardHere
   lda #CARDCORNERS_BASE
@@ -400,11 +430,11 @@ cardHere:
   adc stile
   sta stile
   lda #CARD_BACK_TILE
-  sta card_buf+5
+  sta col1+1,x
   eor #$01
-  sta card_buf+6
+  sta col2+1,x
   eor #$11
-  sta card_buf+9
+  sta col1+2,x
   eor #$01
   bne have_center_br
 flippedHere:
@@ -423,72 +453,61 @@ flippedHere:
   sta stile
   lda #BLANK_TILE
 have_center_solid:
-  sta card_buf+5
-  sta card_buf+6
-  sta card_buf+9
+  sta col1+1,x
+  sta col2+1,x
+  sta col1+2,x
 have_center_br:
-  sta card_buf+10
+  sta col2+2,x
 
   ; Write out the borders
   lda nwtile
-  sta card_buf+0
+  sta col0+0,x
   lda netile
-  sta card_buf+3
+  sta col3+0,x
   lda swtile
-  sta card_buf+12
+  sta col0+3,x
   lda setile
-  sta card_buf+15
+  sta col3+3,x
   
   lda ntile
   cmp #CARDCORNERS_BASE+1
   bcc :+
     adc #CARDTB_BASE-CARDCORNERS_BASE-2
   :
-  sta card_buf+1
-  sta card_buf+2
+  sta col1+0,x
+  sta col2+0,x
   lda wtile
   cmp #CARDCORNERS_BASE+1
   bcc :+
     adc #CARDLR_BASE-CARDCORNERS_BASE-2
   :
-  sta card_buf+4
-  sta card_buf+8
+  sta col0+1,x
+  sta col0+2,x
   lda etile
   cmp #CARDCORNERS_BASE+1
   bcc :+
     adc #CARDLR_BASE-CARDCORNERS_BASE-2
   :
-  sta card_buf+7
-  sta card_buf+11
+  sta col3+1,x
+  sta col3+2,x
   lda stile
   cmp #CARDCORNERS_BASE+1
   bcc :+
     adc #CARDTB_BASE-CARDCORNERS_BASE-2
   :
-  sta card_buf+13
-  sta card_buf+14
+  sta col1+3,x
+  sta col2+3,x
+  
+  txa
+  clc
+  adc #28
+  sta popslide_used
 
   ldy card_id
   rts
 .endproc
---procs--
 .proc blitCard
-  ldx #3
-  lda #VBLANK_NMI|VRAM_DOWN
-  sta PPUCTRL
-rowloop:
-  lda card_dst_hi
-  sta PPUADDR
-  txa
-  clc
-  adc card_dst_lo
-  sta PPUADDR
-  .repeat 4, I
-    lda card_buf+4*I,x
-    sta PPUDATA
-  .endrepeat
-  dex
-  bpl rowloop
+  jsr popslide_terminate_blit
   rts
 .endproc
 --procs--
@@ -498,30 +517,29 @@ rowloop:
 .proc gameOverClearRow
   lda gameOverClearTransitionY
   beq notClearOut
-  ldx #VBLANK_NMI
-  stx PPUCTRL
-  ldx #0
-  stx gameOverClearTransitionY
-  lsr a
+  sta $4444
+  ldx popslide_used
+  sec
+  ror a
   ror gameOverClearTransitionY
   lsr a
   ror gameOverClearTransitionY
   lsr a
   ror gameOverClearTransitionY
-  ora #$20
-  sta PPUADDR
+  sta popslide_buf+0,x
   lda gameOverClearTransitionY
-  sta PPUADDR
-  stx gameOverClearTransitionY
-.shuffle
-  ldx #16
-  lda #$03  ; black tile
-.endshuffle
-:
-  sta PPUDATA
-  sta PPUDATA
-  dex
-  bne :-
+  and #$E0
+  sta popslide_buf+1,x
+  lda #31|$40
+  sta popslide_buf+2,x
+  lda #OUTSIDE_TABLE_TILE
+  sta popslide_buf+3,x
+  txa
+  clc
+  adc #4
+  sta popslide_used
+  lda #0
+  sta gameOverClearTransitionY
 notClearOut:
   rts
 .endproc
@@ -1236,11 +1254,6 @@ spriteloop_done:
   lda #VBLANK_NMI
   sta PPUCTRL
 .shuffle --parts--
-  ldx #0
-  stx $2003
-  lda #>OAM
-  sta $4014
---parts--
   lda #$3F
   sta PPUADDR
   lda #$02

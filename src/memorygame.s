@@ -17,6 +17,7 @@
 ;
 .include "nes.inc"
 .include "global.inc"
+.include "popslide.inc"
 
 USE_SELECT_FOR_SLOWDOWN = 1
 USE_B_FOR_RANDOM = 1
@@ -70,26 +71,25 @@ das_keys: .res 2  ; one for each pad
 --thingstoinit--  
   lda #$FF
 .shuffle
-  sta selectedCards
+  sta selectedCards+0
   sta selectedCards+1
 .endshuffle
 --thingstoinit--
   ; Draw all the face-down cards to VRAM
   ldx #FIELD_HT*FIELD_WID-1
-  stx cardToDraw
 .endshuffle
 
-surroundsLoop:
+allCardsLoop:
 .shuffle
-  ldx cardToDraw
+  stx cardToDraw
   lda #0
 .endshuffle
   sta rememberState,x  ; clear CPU-remembered state of this card
-  txa
   jsr buildCardTiles
-  jsr blitCard
-  dec cardToDraw
-  bpl surroundsLoop
+  jsr popslide_terminate_blit
+  ldx cardToDraw
+  dex
+  bpl allCardsLoop
   
 cardsLoop:
   jsr read_pads
@@ -138,13 +138,17 @@ notRight:
   ; other keys like A and B are handled by the state handlers
   jsr stateDispatch
 
+.shuffle --preps--
   ldx cardToDraw
   bmi :+
-  jsr buildCardTiles
-:
-.shuffle
+    jsr buildCardTiles
+  :
+--preps--
   jsr drawCardSprites
+--preps--
   jsr pently_update
+--preps--
+  jsr gameOverClearRow
 .endshuffle
 
   ; all done; now wait for vblank and blit the damn things
@@ -164,34 +168,26 @@ mainSlowdown:
   lda #0
 .shuffle
   sta PPUMASK
+  sta $2003
   bit PPUSTATUS
 .endshuffle
-
+  lda #>OAM
+  sta $4014
 .shuffle --thingstoblit--
   jsr blitCardSprites
 --thingstoblit--
   jsr blitScoreUpdate
---thingstoblit--
-  jsr gameOverClearRow
 .endshuffle
-; Call blitCard last because it draws things in column order, not
-; row order.
-  ldx cardToDraw
-  bmi :+
-  jsr blitCard
-  lda #$FF
-  sta cardToDraw
-:
+  ; Call popslide last because it may draw things in column order,
+  ; not row order.
+  jsr popslide_terminate_blit
 .shuffle
   lda #VBLANK_NMI|BG_1000|OBJ_1000
   ldx #0
   ldy #12
+  sec
 .endshuffle
-  sta PPUCTRL
-  stx PPUSCROLL
-  sty PPUSCROLL
-  lda #%00011110
-  sta PPUMASK
+  jsr ppu_screen_on
   lda curState
   cmp #PlayState::DONE
   beq exit
