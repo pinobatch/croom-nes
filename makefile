@@ -9,10 +9,12 @@
 # This file is offered as-is, without any warranty.
 #
 title := croom
-version := 0.02a
-objlist := litemain litetitle liteopponents \
-          memorygame drawcards shuffle aidiocy \
-          pads ppuclear unpkb bcd pentlysound pentlymusic musicseq
+version := wip
+objlist := \
+  litemain litetitle liteopponents \
+  memorygame drawcards shuffle aidiocy \
+  pads ppuclear unpkb bcd pentlysound pentlymusic musicseq \
+  popslide16
 
 CC65 = /usr/local/bin
 AS65 = ca65

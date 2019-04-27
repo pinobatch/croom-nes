@@ -19,10 +19,11 @@
 .include "global.inc"
 
 ; Transfer buffers used by this I/O module
-card_buf = $0100
-sprpal_buf = $0110
-scoreXferBuf = $011C
-otherBuf = $012A  ; Unallocated from here to $019F
+; before transition to popslide
+card_buf = $0180
+sprpal_buf = $0190
+scoreXferBuf = $019C
+otherBuf = $01AA  ; Unallocated from here to $01BF
 
 ; When nonzero, show the game state, current turn, and AI state
 ; as sprites in the upper left corner.
