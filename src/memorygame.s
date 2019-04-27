@@ -168,16 +168,12 @@ mainSlowdown:
   lda #0
 .shuffle
   sta PPUMASK
-  sta $2003
+  sta OAMADDR
   bit PPUSTATUS
 .endshuffle
   lda #>OAM
   sta $4014
-.shuffle --thingstoblit--
   jsr blitCardSprites
---thingstoblit--
-  jsr blitScoreUpdate
-.endshuffle
   ; Call popslide last because it may draw things in column order,
   ; not row order.
   jsr popslide_terminate_blit

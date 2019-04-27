@@ -19,12 +19,9 @@
 .include "global.inc"
 .include "popslide.inc"
 
-; Transfer buffers used by this I/O module
-; before transition to popslide
-card_buf = $0180
-sprpal_buf = $0190
-scoreXferBuf = $019C
-otherBuf = $01AA  ; Unallocated from here to $01BF
+; Transfer buffers that haven't yet been transitioned to popslide
+sprpal_buf = $0180
+otherBuf = $018C  ; Unallocated from here to $01BF
 
 ; When nonzero, show the game state, current turn, and AI state
 ; as sprites in the upper left corner.
@@ -47,8 +44,6 @@ CARDLR_BASE = $38
 .shuffle
 selectedCards: .res 2
 card0FlipFrame: .res 1
-card_dst_hi: .res 1
-card_dst_lo: .res 1
 collectingX: .res 2
 collectingY: .res 2
 collectingDX: .res 2
@@ -57,8 +52,7 @@ cursor_x: .res 1  ; 0 to 8
 cursor_y: .res 1  ; 0 to 7
 cursor_sprite_x: .res 1  ; 32 to 224
 cursor_sprite_y: .res 1  ; 39 to 207
-curTurn: .res 1         ; 0: jews; 1: flp
-scoreXferDst: .res 1  ; player for which a score update is ready
+curTurn: .res 1         ; 0: player; 1: cpu or player 2
 .endshuffle
 
 surrounds = $01
@@ -214,6 +208,8 @@ skippedRSide:
 ; @param x card position (0-71)
 .proc buildCardTiles
 card_id = $00
+card_dst_lo = $02
+card_dst_hi = $03
 
 nwtile = $07
 wtile = $08
@@ -546,68 +542,104 @@ notClearOut:
 --procs--
 ;;
 ; Makes a score update: 14 characters
-; (>[].....18..)
+;  3-16 (>[].....18..)
+; 20-33 (>[].....18..)
 ; @param x the player for which to build the score update
 ; @param y nonzero: add "WIN"
 .proc buildScoreUpdate
-  tya
+highdigits = $00
+iswin = $01
 .shuffle
-  pha
-  stx scoreXferDst
+  sty iswin
+  txa
 .endshuffle
+.shuffle
+  tay
+  ldx popslide_used
+  clc
+.endshuffle
+  lda scoreBoxAddrLo,y
+  sta popslide_buf+1,x
+  adc #$20
+  sta popslide_buf+18,x
+
+toprow    = popslide_buf+3
+bottomrow = popslide_buf+20
 
 .shuffle --parts--
-
+  ; high byte
+  lda #$23
+.shuffle
+  sta popslide_buf+0,x
+  sta popslide_buf+17,x
+.endshuffle
+--parts--
+  ; packet length
+  lda #14-1
+.shuffle
+  sta popslide_buf+2,x
+  sta popslide_buf+19,x
+.endshuffle
+--parts--
   ; first the endcaps
   lda #$64
-  sta scoreXferBuf
+  sta toprow+0,x
 --parts--
   lda #$67
-  sta scoreXferBuf+13
+  sta toprow+13,x
 --parts--
-
   ; draw player's emblem
-  txa
+  PLAYER_EMBLEM_TILE = $60
+  tya
   asl a
-  ora #$60
-  sta scoreXferBuf+2
+  ora #PLAYER_EMBLEM_TILE
+  sta toprow+2,x
   ora #$01
-  sta scoreXferBuf+3
-.endshuffle
-
+  sta toprow+3,x
+--parts--
   ; clear space between emblem and right endcap
+  sty highdigits
+  SCOREBOX_BG_TILE = $66
+  SCOREBOX_TURN_TILE = $65
 .shuffle
   ldy #9
-  lda #$66
+  lda #SCOREBOX_BG_TILE
 .endshuffle
 :
-  sta scoreXferBuf+3,y
+  sta toprow+4,x
+  inx
   dey
   bne :-
-
+  ldy highdigits
+  ldx popslide_used
   ; draw turn indicator
-  cpx curTurn
+  cpy curTurn
   bne notMyTurn
-  lda #$65
-notMyTurn:
-  sta scoreXferBuf+1
-
-  ; draw win indicator if Y was nonzero on entry
-  pla
-  beq notWin
-  ldy #$4D
-  sty scoreXferBuf+5
-  iny
-  sty scoreXferBuf+6
-  iny
-  sty scoreXferBuf+7
-notWin:
+    lda #SCOREBOX_TURN_TILE
+  notMyTurn:
+  sta toprow+1,x
+--parts--
+  WORD_WIN_TILE = $4D
+  lda iswin
+  beq notWriteWin
+.shuffle
+    clc
+    lda #$4D
+.endshuffle
+    sta toprow+5,x
+    adc #1
+    sta toprow+6,x
+    adc #1
+    sta toprow+7,x
+  notWriteWin:
+.endshuffle
 
   ; draw score
-  lda score,x
+  DIGITS_BASE = $40
+  lda score,y
   jsr bcd8bit
   ora #$40
-  sta scoreXferBuf+11
+  sta toprow+11,x
   lda 0
   beq tensIsZero
   cmp #16
@@ -617,50 +649,28 @@ notWin:
   lsr a
   lsr a
   ora #$40
-  sta scoreXferBuf+9
+  sta toprow+9,x
   lda 0
   and #$0F
 noThirdDigit:
   ora #$40
-  sta scoreXferBuf+10
+  sta toprow+10,x
 tensIsZero:
-  rts
-.endproc
---procs--
 
-.proc blitScoreUpdate
-  ldx scoreXferDst
-  bmi noScoreXfer
-
-  lda #VBLANK_NMI
-  sta PPUCTRL
-  sta scoreXferDst
-  lda #$23
-  sta PPUADDR
-  lda scoreBoxAddrLo,x
-  sta PPUADDR
-  ldy #0
-:
-  lda scoreXferBuf,y
-  sta PPUDATA
-  iny
-  cpy #14
-  bcc :-
-
-  lda #$23
-  sta PPUADDR
-  lda scoreBoxAddrLo,x
-  ora #$20
-  sta PPUADDR
-  ldy #0
-:
-  lda scoreXferBuf,y
-  ora #$10
-  sta PPUDATA
-  iny
-  cpy #14
-  bcc :-
-noScoreXfer:
+.shuffle
+  txa
+  clc
+  ldy #14
+.endshuffle
+  adc #34
+  sta popslide_used
+  endcopyloop:
+    lda #$10
+    ora toprow,x
+    sta bottomrow,x
+    inx
+    dey
+    bne endcopyloop
   rts
 .endproc
 --procs--
@@ -741,20 +751,16 @@ main_area_rowloop:
     sta PPUDATA
   .endrepeat
 
-  ; draw the status bar
-  ldx numPlayers
-:
-  dex
-  txa
-.shuffle
-  pha
+  ; draw the status bars
+  ldx #0
   ldy #0
-.endshuffle
   jsr buildScoreUpdate
-  jsr blitScoreUpdate
-  pla
-  tax 
-  bne :-
+  ldx numPlayers
+  dex
+  beq not2players
+    jsr buildScoreUpdate
+  not2players:
+  jsr popslide_terminate_blit
   
   ; wait for vblank to set the palette so that there isn't
   ; rainbow garbage
