@@ -35,6 +35,7 @@ SHOW_STATE_AND_TURN = 0
 DRAW_REMEMBERED_BACKS = 0
 
 ; Various tile indices
+BLANK_TILE = $00
 CARD_BACK_TILE = $04
 ARROW_TILE = $06
 CARDCORNERS_BASE = $20
@@ -66,6 +67,16 @@ boardState: .res 72
 
 .segment "CODE"
 .shuffle --procs--
+SURR_NW = 1<<7
+SURR_W  = 1<<4
+SURR_SW = 1<<2
+SURR_N  = 1<<6
+SURR_S  = 1<<1
+SURR_NE = 1<<5
+SURR_E  = 1<<3
+SURR_SE = 1<<0
+
+.shuffle --procs--
 ;;
 ; Finds which cards surround a given card.
 ; surrounds:
@@ -82,25 +93,25 @@ surrounds = 1
 ; handle board corners
   cpx #0
   bne notTopLeft
-  lda #$80
+  lda #SURR_NW
   sta surrounds
   bne hitLSideCorner
 notTopLeft:
   cpx #7
   bne notBottomLeft
-  lda #$04
+  lda #SURR_SW
   sta surrounds
   bne hitLSideCorner
 notBottomLeft:
   cpx #64
   bne notTopRight
-  lda #$20
+  lda #SURR_NE
   sta surrounds
   bne hitRSideCorner
 notTopRight:
   cpx #71
   bne notBottomRight
-  lda #$01
+  lda #SURR_SE
   sta surrounds
   bne hitRSideCorner
 notBottomRight:
@@ -114,14 +125,14 @@ hitRSideCorner:
   beq skippedUL
   lda boardState-9,x
   bpl skippedUL
-  lda #$80
+  lda #SURR_NW
   ora surrounds
   sta surrounds
 skippedUL:
 
   lda boardState-8,x
   bpl skippedL
-  lda #$10
+  lda #SURR_W
   ora surrounds
   sta surrounds
 skippedL:
@@ -132,7 +143,7 @@ skippedL:
   beq skippedDL
   lda boardState-7,x
   bpl skippedDL
-  lda #$04
+  lda #SURR_SW
   ora surrounds
   sta surrounds
 skippedDL:
@@ -145,7 +156,7 @@ hitLSideCorner:
   beq skippedU
   lda boardState-1,x
   bpl skippedU
-  lda #$40
+  lda #SURR_N
   ora surrounds
   sta surrounds
 skippedU:
@@ -156,7 +167,7 @@ skippedU:
   beq skippedD
   lda boardState+1,x
   bpl skippedD
-  lda #$02
+  lda #SURR_S
   ora surrounds
   sta surrounds
 skippedD:
@@ -169,14 +180,14 @@ skippedD:
   beq skippedUR
   lda boardState+7,x
   bpl skippedUR
-  lda #$20
+  lda #SURR_NE
   ora surrounds
   sta surrounds
 skippedUR:
 
   lda boardState+8,x
   bpl skippedR
-  lda #$08
+  lda #SURR_E
   ora surrounds
   sta surrounds
 skippedR:
@@ -187,23 +198,31 @@ skippedR:
   beq skippedDR
   lda boardState+9,x
   bpl skippedDR
-  lda #$01
+  lda #SURR_SE
   ora surrounds
   sta surrounds
 skippedDR:
 skippedRSide:
 
-  lda surrounds
   rts
 .endproc
+
 --procs--
 ;;
 ; Builds the data for a single tile.
 ; @param x card position (0-71)
 .proc buildCardTiles
 card_id = $00
-var2 = $02
-var3 = $03
+
+nwtile = $07
+wtile = $08
+swtile = $09
+ntile = $0A
+centertile = $0B
+stile = $0C
+netile = $0D
+etile = $0E
+setile = $0F
 
 ; tiles $20-$2F: 1 top left present, 2 top right present,
 ; 4 bottom left present, 8 bottom right present
@@ -218,6 +237,7 @@ var3 = $03
   jsr card_get_surrounds
 
   ; Calculate destination address
+  ; top left corner: $2062
   txa
   lsr a
   lsr a
@@ -233,11 +253,12 @@ var3 = $03
   ; at this point: card_dst_hi = tileno / 8
   asl a
   adc card_dst_hi
-  sta card_dst_hi
-  ; at this point: card_dst_hi = (tileno / 8) * 3
-  lda #0
+  ; at this point: A = (tileno / 8) * 3
+  ; multiply by 32 and add $2000
   sec
-  ror card_dst_hi
+  ror a
+  sta card_dst_hi
+  lda #0
   ror a
   lsr card_dst_hi
   ror a
@@ -250,121 +271,111 @@ var3 = $03
     inc card_dst_hi
   :
 
+  ldx #8
   lda #CARDCORNERS_BASE
-  ldx #15
-clearBack:
-  sta card_buf,x
+clearBack2:
+  sta nwtile,x
   dex
-  bpl clearBack
+  bpl clearBack2
 
   ldy card_id
-  ldx #$00
   asl surrounds
   bcc notUL
-  lda #$01
-  ora card_buf+0
-  sta card_buf+0
+  inc nwtile
 notUL:
   asl surrounds
   bcc notU
-  lda #CARDCORNERS_BASE|$01
-  sta card_buf+1
+  inc ntile
   lda #$02
-  ora card_buf+0
-  sta card_buf+0
-  lda #$01
-  ora card_buf+3
-  sta card_buf+3
+  ora nwtile
+  sta nwtile
+  inc netile
   lda #$40
   and boardState-1,y  ; is N card faceup?
   beq notU
   lda #CARDCORNERS_BASE|$02
-  sta card_buf+1
+  sta ntile
 notU:
   asl surrounds
   bcc notUR
-  lda #2
-  ora card_buf+3
-  sta card_buf+3
+  lda #$02
+  ora netile
+  sta netile
 notUR:
   asl surrounds
   bcc notL
-  lda #CARDCORNERS_BASE+1
-  sta card_buf+4
+  inc wtile
   lda #$04
-  ora card_buf+0
-  sta card_buf+0
-  lda #$01
-  ora card_buf+12
-  sta card_buf+12
+  ora nwtile
+  sta nwtile
+  inc swtile
   lda #$40
   and boardState-8,y  ; is W card faceup?
   beq notL
   lda #CARDCORNERS_BASE+2
-  sta card_buf+4
+  sta wtile
 notL:
   asl surrounds
   bcc notR
   lda #CARDCORNERS_BASE+3
-  sta card_buf+7
+  sta etile
   lda #$08
-  ora card_buf+3
-  sta card_buf+3
+  ora netile
+  sta netile
   lda #$02
-  ora card_buf+15
-  sta card_buf+15
+  ora setile
+  sta setile
   lda #$40
   and boardState+8,y  ; is E card faceup?
   beq notR
   lda #CARDCORNERS_BASE+6
-  sta card_buf+7
+  sta etile
 notR:
   asl surrounds
   bcc notDL
   lda #$04
-  ora card_buf+12
-  sta card_buf+12
+  ora swtile
+  sta swtile
 notDL:
   asl surrounds
   bcc notD
   lda #CARDCORNERS_BASE+3
-  sta card_buf+13
+  sta stile
   lda #$08
-  ora card_buf+12
-  sta card_buf+12
+  ora swtile
+  sta swtile
   lda #$04
-  ora card_buf+15
-  sta card_buf+15
+  ora setile
+  sta setile
   lda #$40
   and boardState+1,y  ; is S faceup?
   beq notD
   lda #CARDCORNERS_BASE+6
-  sta card_buf+13
+  sta stile
 notD:
   asl surrounds
   bcc notDR
   lda #$08
-  ora card_buf+15
-  sta card_buf+15
+  ora setile
+  sta setile
 notDR:
 
   lda boardState,y  ; If there's a card here, put it here
   bmi cardHere
-  jmp notHere
+  lda #CARDCORNERS_BASE
+  bne have_center_solid
 cardHere:  
   ; add corners for the card in the middle
   lda #$08
-  ora card_buf
-  sta card_buf
+  ora nwtile
+  sta nwtile
   lda #$04
-  ora card_buf+3
-  sta card_buf+3
+  ora netile
+  sta netile
   lda #$02
-  ora card_buf+12
-  sta card_buf+12
-  lda #$01
-  ora card_buf+15
-  sta card_buf+15
+  ora swtile
+  sta swtile
+  inc setile
   
   ; process sides and middle
   lda boardState,y
@@ -377,17 +388,17 @@ cardHere:
 .endif
   clc
   lda #3
-  adc card_buf+1
-  sta card_buf+1
+  adc ntile
+  sta ntile
   lda #3
-  adc card_buf+4
-  sta card_buf+4
+  adc wtile
+  sta wtile
   lda #1
-  adc card_buf+7
-  sta card_buf+7
+  adc etile
+  sta etile
   lda #1
-  adc card_buf+13
-  sta card_buf+13
+  adc stile
+  sta stile
   lda #CARD_BACK_TILE
   sta card_buf+5
   eor #$01
@@ -395,61 +406,68 @@ cardHere:
   eor #$11
   sta card_buf+9
   eor #$01
-  sta card_buf+10
-  bne notHere
+  bne have_center_br
 flippedHere:
   clc
   lda #6
-  adc card_buf+1
-  sta card_buf+1
+  adc ntile
+  sta ntile
   lda #6
-  adc card_buf+4
-  sta card_buf+4
+  adc wtile
+  sta wtile
   lda #2
-  adc card_buf+7
-  sta card_buf+7
+  adc etile
+  sta etile
   lda #2
-  adc card_buf+13
-  sta card_buf+13
-  lda #$00
+  adc stile
+  sta stile
+  lda #BLANK_TILE
+have_center_solid:
   sta card_buf+5
   sta card_buf+6
   sta card_buf+9
+have_center_br:
   sta card_buf+10
 
-notHere:
+  ; Write out the borders
+  lda nwtile
+  sta card_buf+0
+  lda netile
+  sta card_buf+3
+  lda swtile
+  sta card_buf+12
+  lda setile
+  sta card_buf+15
   
-  lda card_buf+1
+  lda ntile
   cmp #CARDCORNERS_BASE+1
   bcc :+
-  adc #CARDTB_BASE-CARDCORNERS_BASE-2
+    adc #CARDTB_BASE-CARDCORNERS_BASE-2
+  :
   sta card_buf+1
   sta card_buf+2
-:
-  lda card_buf+4
+  lda wtile
   cmp #CARDCORNERS_BASE+1
   bcc :+
-  adc #CARDLR_BASE-CARDCORNERS_BASE-2
+    adc #CARDLR_BASE-CARDCORNERS_BASE-2
+  :
   sta card_buf+4
   sta card_buf+8
-:
-  lda card_buf+7
+  lda etile
   cmp #CARDCORNERS_BASE+1
   bcc :+
-  adc #CARDLR_BASE-CARDCORNERS_BASE-2
+    adc #CARDLR_BASE-CARDCORNERS_BASE-2
+  :
   sta card_buf+7
   sta card_buf+11
-:
-  lda card_buf+13
+  lda stile
   cmp #CARDCORNERS_BASE+1
   bcc :+
-  adc #CARDTB_BASE-CARDCORNERS_BASE-2
+    adc #CARDTB_BASE-CARDCORNERS_BASE-2
+  :
   sta card_buf+13
   sta card_buf+14
-:
-  tya
 
-  
   ldy card_id
   rts
 .endproc
