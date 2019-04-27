@@ -17,6 +17,7 @@
 ;
 .include "nes.inc"
 .include "global.inc"
+.include "popslide.inc"
 
 ; Transfer buffers used by this I/O module
 ; before transition to popslide
@@ -58,6 +59,8 @@ curTurn: .res 1         ; 0: jews; 1: flp
 scoreXferDst: .res 1  ; player for which a score update is ready
 .endshuffle
 
+surrounds = $01
+
 .segment "BSS"
 boardState: .res 72
 
@@ -70,6 +73,7 @@ boardState: .res 72
 ; 4 3
 ; 210
 ; @param x card position (0-71)
+; @return surrounds ($01): which adjacent cards are present
 .proc card_get_surrounds
 surrounds = 1
   lda #0
@@ -197,7 +201,9 @@ skippedRSide:
 ; Builds the data for a single tile.
 ; @param x card position (0-71)
 .proc buildCardTiles
-surrounds = 1
+card_id = $00
+var2 = $02
+var3 = $03
 
 ; tiles $20-$2F: 1 top left present, 2 top right present,
 ; 4 bottom left present, 8 bottom right present
@@ -208,10 +214,41 @@ surrounds = 1
 ; 3 right present, 6 right present and flipped
 ; $37 does not exist so use $20 instead
 
-  txa
-  pha
+  stx card_id
   jsr card_get_surrounds
-  sta surrounds
+
+  ; Calculate destination address
+  txa
+  lsr a
+  lsr a
+  lsr a
+  sta card_dst_lo
+  asl a
+  adc card_dst_lo
+  adc #$62
+  sta card_dst_lo
+  txa
+  and #$07
+  sta card_dst_hi
+  ; at this point: card_dst_hi = tileno / 8
+  asl a
+  adc card_dst_hi
+  sta card_dst_hi
+  ; at this point: card_dst_hi = (tileno / 8) * 3
+  lda #0
+  sec
+  ror card_dst_hi
+  ror a
+  lsr card_dst_hi
+  ror a
+  lsr card_dst_hi
+  ror a
+  ; at this point: card_dst_hi:A = (tileno / 8) * 96
+  adc card_dst_lo
+  sta card_dst_lo
+  bcc :+
+    inc card_dst_hi
+  :
 
   lda #CARDCORNERS_BASE
   ldx #15
@@ -219,9 +256,9 @@ clearBack:
   sta card_buf,x
   dex
   bpl clearBack
-  pla
-  tax
 
+  ldy card_id
+  ldx #$00
   asl surrounds
   bcc notUL
   lda #$01
@@ -239,7 +276,7 @@ notUL:
   ora card_buf+3
   sta card_buf+3
   lda #$40
-  and boardState-1,x
+  and boardState-1,y  ; is N card faceup?
   beq notU
   lda #CARDCORNERS_BASE|$02
   sta card_buf+1
@@ -261,7 +298,7 @@ notUR:
   ora card_buf+12
   sta card_buf+12
   lda #$40
-  and boardState-8,x
+  and boardState-8,y  ; is W card faceup?
   beq notL
   lda #CARDCORNERS_BASE+2
   sta card_buf+4
@@ -277,7 +314,7 @@ notL:
   ora card_buf+15
   sta card_buf+15
   lda #$40
-  and boardState+8,x
+  and boardState+8,y  ; is E card faceup?
   beq notR
   lda #CARDCORNERS_BASE+6
   sta card_buf+7
@@ -299,7 +336,7 @@ notDL:
   ora card_buf+15
   sta card_buf+15
   lda #$40
-  and boardState+1,x
+  and boardState+1,y  ; is S faceup?
   beq notD
   lda #CARDCORNERS_BASE+6
   sta card_buf+13
@@ -311,7 +348,7 @@ notD:
   sta card_buf+15
 notDR:
 
-  lda boardState,x
+  lda boardState,y  ; If there's a card here, put it here
   bmi cardHere
   jmp notHere
 cardHere:  
@@ -330,11 +367,12 @@ cardHere:
   sta card_buf+15
   
   ; process sides and middle
-  lda boardState,x
+  lda boardState,y
   and #$40
   bne flippedHere
+  ; AI debugging
 .if ::DRAW_REMEMBERED_BACKS
-  lda rememberState,x
+  lda rememberState,y
   bne flippedHere
 .endif
   clc
@@ -409,41 +447,10 @@ notHere:
   sta card_buf+13
   sta card_buf+14
 :
-  txa
-  ; fall through to next proc
-.endproc
-.proc getCard_dst
-  pha
-  lsr a
-  lsr a
-  lsr a
-  sta card_dst_lo
-  asl a
-  adc card_dst_lo
-  adc #$62
-  sta card_dst_lo
-  pla
-  and #$07
-  sta card_dst_hi
-  ; at this point: card_dst_hi = tileno / 8
-  asl a
-  adc card_dst_hi
-  sta card_dst_hi
-  ; at this point: card_dst_hi = (tileno / 8) * 3
-  lda #0
-  sec
-  ror card_dst_hi
-  ror a
-  lsr card_dst_hi
-  ror a
-  lsr card_dst_hi
-  ror a
-  ; at this point: card_dst_hi:A = (tileno / 8) * 96
-  adc card_dst_lo
-  sta card_dst_lo
-  bcc :+
-    inc card_dst_hi
-  :
+  tya
+
+  
+  ldy card_id
   rts
 .endproc
 --procs--
@@ -622,6 +629,7 @@ noScoreXfer:
 .endproc
 --procs--
 .proc loadPlayScreen
+  jsr popslide_init
 .shuffle
   lda #VBLANK_NMI
   ldx #192
@@ -632,11 +640,11 @@ noScoreXfer:
   sta PPUCTRL
 .endshuffle
   ldx #0
+.shuffle
   stx collectingY+0
   stx collectingY+1
   stx collectingX+0
   stx collectingX+1
-.shuffle
   stx PPUMASK
   lda #$20
 .endshuffle
