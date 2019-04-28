@@ -127,6 +127,14 @@ opponentShapeOffsets:
   .byt opponentShape3-opponentShape0
   .byt opponentShape4-opponentShape0
 
+; 76543210  byte 0
+; ||  ++++- length in tiles
+; |+------- 0: palette 0; 1: palette 1
+; +-------- 0: right (X += 8, tile += 1); 1: down (Y += 8, tile += 16)
+; byte 1: X offset
+; byte 2: Y offset
+; byte 3: first tile
+
 opponentShape0:
   .byt $26,$38,$0F,$26,$14,$0F
   .byt $01, 4, 8,$CF

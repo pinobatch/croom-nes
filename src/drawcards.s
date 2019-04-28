@@ -53,6 +53,7 @@ cursor_y: .res 1  ; 0 to 7
 cursor_sprite_x: .res 1  ; 32 to 224
 cursor_sprite_y: .res 1  ; 39 to 207
 curTurn: .res 1         ; 0: player; 1: cpu or player 2
+oam_used: .res 1
 .endshuffle
 
 surrounds = $01
@@ -784,14 +785,51 @@ copypal:
   rts
 .endproc
 --procs--
+objstrip_y = $00
+objstrip_tile = $01
+objstrip_attr = $02
+objstrip_x = $03
+objstrip_len = $04
+.proc drawxstrip
+  ldx oam_used
+  loop:
+    lda objstrip_y
+    sta OAM,x
+.shuffle
+    inx
+    lda objstrip_tile
+.endshuffle
+    sta OAM,x
+.shuffle
+    inc objstrip_tile
+    inx
+    lda objstrip_attr
+.endshuffle
+    sta OAM,x
+.shuffle
+    inx
+    lda objstrip_x
+    clc
+.endshuffle
+    sta OAM,x
+.shuffle
+    inx
+    adc #8
+.endshuffle
+    sta objstrip_x
+    dec objstrip_len
+    bne loop
+  stx oam_used
+  rts
+.endproc
+--procs--
 .proc drawCardSprites
-cards_left = 0
-oam_index = 1
-this_pos = 2
-thisCard = 3
-mul_temp = 4
-this_pos_x = 5
-this_pos_y = 6
+cards_left = $05
+this_pos = $06
+thisCard = $07
+mul_temp = $08
+this_pos_x = $09
+this_pos_y = $0A
 
   ldx #11
   lda #0
@@ -800,100 +838,57 @@ this_pos_y = 6
   dex
   bpl :-
 
-  lda #4
-  sta oam_index
+  lda #0
+  sta oam_used
 
   ; First draw the arrow sprite because it's on top.
   lda lastPlayerIsAI
-  bne notPassController
+  bne drawArrow
   lda curState
   cmp #PlayState::PASS_CONTROLLER
-  beq drawPassController
-notPassController:
-  jmp drawArrow
+  bne drawArrow
 
-drawPassController:
   ; If in pass-controller mode, draw "pass the controller" message
-
-  ldx oam_index  
-.shuffle --oamattrs--
-  lda #191
+.shuffle --passline1--
+  lda #195
 .shuffle
   sta cursor_sprite_y
-  sta OAM,x
-  sta OAM+4,x
-  sta OAM+8,x
-  sta OAM+12,x
+  sta objstrip_y
 .endshuffle
---oamattrs--
-  lda #201
-.shuffle
-  sta OAM+16,x
-  sta OAM+20,x
-  sta OAM+24,x
-.endshuffle
---oamattrs--
-  lda #$02
-.shuffle
-  sta OAM+2,x
-  sta OAM+6,x
-  sta OAM+10,x
-  sta OAM+14,x
-  sta OAM+18,x
-  sta OAM+22,x
-  sta OAM+25,x
-  sta OAM+26,x
-.endshuffle
---oamattrs--
+--passline1--
   lda #$10
-  sta OAM+1,x
---oamattrs--
-  lda #$11
-  sta OAM+5,x
---oamattrs--
-  lda #$12
-  sta OAM+9,x
---oamattrs--
-  lda #$13
-  sta OAM+13,x
---oamattrs--
-  lda #$01
-  sta OAM+17,x
---oamattrs--
-  lda #$0b
-  sta OAM+21,x
---oamattrs--
-  
-  ; (.[].......0.)
+  sta objstrip_tile
+--passline1--
+  lda #$02
+  sta objstrip_attr
+--passline1--
   ldy curTurn
-.shuffle
   lda scoreBoxSprX,y
-  clc
-.endshuffle
-  adc #24
-  sta OAM+3,x
-  adc #4
-  sta OAM+19,x
-  adc #4
 .shuffle
+  sta objstrip_x
   sta cursor_sprite_x
-  sta OAM+7,x
 .endshuffle
-  adc #4
-  sta OAM+23,x
-  adc #4
-  sta OAM+11,x
-  adc #4
-  sta OAM+27,x
-  adc #4
-  sta OAM+15,x
+--passline1--
+  lda #4
+  sta objstrip_len
 .endshuffle
+  jsr drawxstrip
+.shuffle --passline2--
+  lda #3
+  sta objstrip_len
+--passline2--
+  lda #$0B
+  sta objstrip_tile
 .shuffle
-  txa
+  lda #8
   clc
 .endshuffle
-  adc #28
-  and #$FC
+  adc objstrip_x
+  sta objstrip_x
+.endshuffle
+  jsr drawxstrip
+
+  lda oam_used
   jmp arrowDone
   
 drawArrow:
@@ -966,7 +961,7 @@ arrow_y_done:
   adc cursor_sprite_y
 .shuffle
   sta cursor_sprite_y
-  ldx oam_index  
+  ldx oam_used  
 .endshuffle
 
 .shuffle --arrowoamparts--
@@ -1021,7 +1016,7 @@ arrow_y_done:
 .endshuffle
   adc #16
 arrowDone:
-  sta oam_index
+  sta oam_used
 .shuffle --arrowcolors--
   lda #$30  ; white for arrow
   sta sprpal_buf+2
@@ -1054,7 +1049,7 @@ to_nfc0:
   jmp notFlippingCard0
 :
   ; draw flipping card 0
-  ldx oam_index
+  ldx oam_used
   lda selectedCards
   and #%00000111
   sta mul_temp
@@ -1107,7 +1102,7 @@ to_nfc0:
   txa
   clc
   adc #24
-  sta oam_index
+  sta oam_used
     
   jmp card_not_selected
 notFlippingCard0:
@@ -1158,7 +1153,7 @@ overriddenX:
   ora mul_temp
   asl a
 
-  ldx oam_index
+  ldx oam_used
   sta OAM+1,x
   eor #$01
   sta OAM+5,x
@@ -1190,7 +1185,7 @@ overriddenX:
   clc
   txa
   adc #16
-  sta oam_index
+  sta oam_used
   
   lda thisCard
   asl a
@@ -1211,7 +1206,7 @@ card_not_selected:
 spriteloop_done:
 
 .if ::SHOW_STATE_AND_TURN
-  ldx oam_index
+  ldx oam_used
   lda #11
   sta OAM,x
   lda #23
@@ -1239,21 +1234,12 @@ spriteloop_done:
   txa
   clc
   adc #12
-  sta oam_index
+  sta oam_used
 .endif
-  ; and clear the rest of the sprites
-  lda #$F0
-  ldx oam_index
-:
-  sta OAM,x
-  inx
-  inx
-  inx
-  inx
-  bne :-
-  sta OAM
 
-  rts
+  ; and clear the rest of the sprites
+  ldx oam_used
+  jmp ppu_clear_oam
 .endproc
 --procs--
 .proc blitCardSprites
