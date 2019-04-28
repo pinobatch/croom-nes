@@ -859,12 +859,7 @@ objstrip_len = $04
 .endproc
 --procs--
 .proc drawCardSprites
-cards_left = $05
-this_pos = $06
-thisCard = $07
-mul_temp = $08
-this_pos_x = $09
-this_pos_y = $0A
+mul_temp = $05
 
   ldx #11
   lda #0
@@ -1027,28 +1022,20 @@ arrowDone:
 .endshuffle
 
   ; Now that we've drawn the arrow, we can draw the card sprites
-  ; under it.
-  
+  ; under it.  Don't draw them in Game Over.
   lda gameOverClearTransitionY
   beq :+
-  jmp spriteloop_done
-:
+    jmp draw_no_card
+  :
 
-  lda #1
-  sta cards_left
+  ; Draw second card if upturned
+  ldx #1
+  jsr drawOneCard
 
-spriteloop:
-  ; high bit set means this isn't the position of a turned-over card
-  ldx cards_left
-  bne to_nfc0
+  ; Draw card 0 if it is flipping.
+  ; (Card 1 is drawn with background)
   lda card0FlipFrame
-  bne :+
-to_nfc0:
-  jmp notFlippingCard0
-:
-
-  ; draw flipping card 0
-  ; (card 1 is drawn with background)
+  beq notFlippingCard0
   ldx oam_used
   lda selectedCards+0
   and #%00000111
@@ -1103,107 +1090,11 @@ to_nfc0:
   clc
   adc #24
   sta oam_used
-    
-  jmp card_not_selected
+  jmp draw_no_card
 notFlippingCard0:
-  lda selectedCards,x
-  bpl card_is_selected
-  jmp card_not_selected
-card_is_selected:
-
-  ; retrieve the shape of the card (28-63)
-  sta this_pos
-  tay
-
-  ; calc Y position
-  lda collectingY,x
-  bne overriddenY
-  tya
-  and #%00000111
-  sta mul_temp
-  asl a
-  adc mul_temp
-  asl a
-  asl a
-  asl a
-  adc #19
-overriddenY:
-  sta this_pos_y
-
-  ; calc X position
-  lda collectingX,x
-  bne overriddenX
-  tya  
-  and #%01111000
-  sta mul_temp
-  asl a
-  adc #24
-  adc mul_temp
-overriddenX:
-  sta this_pos_x
-
-  lda boardState,y
-  and #%00111111
-  sta thisCard
-  and #%00000111
-  sta mul_temp
-  lda thisCard
-  and #%00111000
-  asl a
-  ora mul_temp
-  asl a
-
-  ldx oam_used
-  sta OAM+1,x
-  eor #$01
-  sta OAM+5,x
-  eor #$11
-  sta OAM+9,x
-  eor #$01
-  sta OAM+13,x
-
-  ; calc the Y position
-  lda this_pos_y
-  sta OAM,x
-  sta OAM+4,x
-  adc #8
-  sta OAM+8,x
-  sta OAM+12,x
-
-  ; calc the X position
-  lda this_pos_x
-  sta OAM+3,x
-  sta OAM+11,x
-  adc #8
-  sta OAM+7,x
-  sta OAM+15,x
-  lda cards_left
-  sta OAM+2,x
-  sta OAM+6,x
-  sta OAM+10,x
-  sta OAM+14,x
-  clc
-  txa
-  adc #16
-  sta oam_used
-  
-  lda thisCard
-  asl a
-  tay
-  
-  ldx cards_left
-  lda card_palettes-56,y
-  sta sprpal_buf,x
-  lda card_palettes-55,y
-  sta sprpal_buf+4,x
-  lda #$0F
-  sta sprpal_buf+8,x
-  
-card_not_selected:
-  dec cards_left
-  bmi spriteloop_done
-  jmp spriteloop
-spriteloop_done:
+  ldx #0
+  jsr drawOneCard
+draw_no_card:
 
 .if ::SHOW_STATE_AND_TURN
   ldx oam_used
@@ -1230,7 +1121,7 @@ spriteloop_done:
   sta OAM+3,x
   sta OAM+7,x
   sta OAM+11,x
-  
+
   txa
   clc
   adc #12
@@ -1240,6 +1131,65 @@ spriteloop_done:
   ; and clear the rest of the sprites
   ldx oam_used
   jmp ppu_clear_oam
+.endproc
+--procs--
+.proc drawOneCard
+mul_temp = $05
+cards_left = objstrip_attr
+  stx cards_left
+  ldy selectedCards,x
+  bpl :+
+    rts
+  :
+
+  ; calc Y position
+  lda collectingY,x
+  bne overriddenY
+  tya
+  and #%00000111
+  sta mul_temp
+  asl a
+  adc mul_temp
+  asl a
+  asl a
+  asl a
+  adc #19
+overriddenY:
+  sta objstrip_y
+
+  ; calc X position
+  lda collectingX,x
+  bne overriddenX
+  tya  
+  and #%01111000
+  sta mul_temp
+  asl a
+  adc #24
+  adc mul_temp
+overriddenX:
+  sta objstrip_x
+
+  lda boardState,y
+  and #%00111111
+  sta mul_temp
+  and #%00111000
+  adc mul_temp
+  asl a
+  sta objstrip_tile
+  jsr draw16x16
+
+  lda mul_temp
+  asl a
+  tay
+  ldx cards_left
+  lda card_palettes-56,y
+  sta sprpal_buf,x
+  lda card_palettes-55,y
+  sta sprpal_buf+4,x
+  lda #$0F
+  sta sprpal_buf+8,x
+  rts
+
 .endproc
 --procs--
 .proc blitCardSprites
