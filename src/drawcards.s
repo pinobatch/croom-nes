@@ -790,6 +790,41 @@ objstrip_tile = $01
 objstrip_attr = $02
 objstrip_x = $03
 objstrip_len = $04
+.proc draw16x16
+  jsr drawxstrip_len2
+.endproc
+; fallthrough
+.proc draw8x16more_plus14
+.shuffle
+  clc
+  lda #14
+.endshuffle
+  adc objstrip_tile
+  sta objstrip_tile
+.endproc
+.proc draw8x16more
+.shuffle --draw16x16attrs--
+.shuffle
+  clc
+  lda #8
+.endshuffle
+  adc objstrip_y
+  sta objstrip_y
+--draw16x16attrs--
+.shuffle
+  clc
+  lda #<-16
+.endshuffle
+  adc objstrip_x
+  sta objstrip_x
+.endshuffle
+.endproc
+; fall through
+.proc drawxstrip_len2
+  lda #2
+  sta objstrip_len
+.endproc
+; fall through
 .proc drawxstrip
   ldx oam_used
   loop:
@@ -879,6 +914,7 @@ this_pos_y = $0A
 --passline2--
   lda #$0B
   sta objstrip_tile
+--passline2--
 .shuffle
   lda #8
   clc
@@ -887,11 +923,11 @@ this_pos_y = $0A
   sta objstrip_x
 .endshuffle
   jsr drawxstrip
-
-  lda oam_used
   jmp arrowDone
   
 drawArrow:
+  ; Place the arrow at (24 * X + 32, 24 * Y + 28)
+  ; If unflipping or collecting is in progress, move by (4, 8)
   lda cursor_x
   asl a
   adc cursor_x
@@ -899,7 +935,10 @@ drawArrow:
   asl a
   asl a
   adc #32
-;  sta mul_temp
+
+  ; Move down and to the right to stay out of the way of the
+  ; revealed cards.  But if there are more than 8 frames left(?)
+  ; in this state, don't move.
   ldy stateTimer
   cpy #8
   bcc isntDownRightX
@@ -912,12 +951,15 @@ drawArrow:
   beq isDownRightX
 .endshuffle
 isntDownRightX:
+  ; Y nonzero means down and to the right is needed
   ldy #0
   beq afterDownRightX
 isDownRightX:
   ; add 4 but we came here on a beq, and cmp/beq implies bcs
   adc #3
-afterDownRightX:  
+afterDownRightX:
+
+  ; First order low pass filtering on the cursor position
   sec
   sbc cursor_sprite_x
   bcs arrow_to_right
@@ -933,6 +975,7 @@ arrow_x_done:
   clc
   adc cursor_sprite_x
   sta cursor_sprite_x
+  sta objstrip_x
 
   lda cursor_y
   asl a
@@ -959,69 +1002,24 @@ arrow_to_down:
 arrow_y_done:
   clc
   adc cursor_sprite_y
-.shuffle
   sta cursor_sprite_y
-  ldx oam_used  
-.endshuffle
+  sta objstrip_y
 
-.shuffle --arrowoamparts--
-  lda cursor_sprite_y
-.shuffle
-  sta OAM,x
-  sta OAM+4,x
-  clc
-.endshuffle
-  adc #8
-.shuffle
-  sta OAM+8,x
-  sta OAM+12,x
-.endshuffle
---arrowoamparts--
   lda #ARROW_TILE
-  sta OAM+1,x
---arrowoamparts--
-  lda #ARROW_TILE|$01
-  sta OAM+5,x
---arrowoamparts--
-  lda #ARROW_TILE|$10
-  sta OAM+9,x
---arrowoamparts--
-  lda #ARROW_TILE|$11
-  sta OAM+13,x
---arrowoamparts--
+  sta objstrip_tile
   lda #2
-.shuffle
-  sta OAM+2,x
-  sta OAM+6,x
-  sta OAM+10,x
-  sta OAM+14,x
-.endshuffle
---arrowoamparts--
-  lda cursor_sprite_x
-.shuffle
-  sta OAM+3,x
-  sta OAM+11,x
-  clc
-.endshuffle
-  adc #8
-.shuffle
-  sta OAM+7,x
-  sta OAM+15,x
-.endshuffle
-.endshuffle
-
-.shuffle
-  txa
-  clc
-.endshuffle
-  adc #16
+  sta objstrip_attr
+  jsr draw16x16
 arrowDone:
-  sta oam_used
+
 .shuffle --arrowcolors--
   lda #$30  ; white for arrow
   sta sprpal_buf+2
 --arrowcolors--
-  lda #$16  ; red color for buttons
+  lda nmis
+  and #$10
+  clc
+  adc #$16  ; red color for A and B buttons
   sta sprpal_buf+6
 --arrowcolors--
   lda #$0F  ; black for arrow
@@ -1048,9 +1046,11 @@ spriteloop:
 to_nfc0:
   jmp notFlippingCard0
 :
+
   ; draw flipping card 0
+  ; (card 1 is drawn with background)
   ldx oam_used
-  lda selectedCards
+  lda selectedCards+0
   and #%00000111
   sta mul_temp
   asl a

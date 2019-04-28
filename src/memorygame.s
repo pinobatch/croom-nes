@@ -720,8 +720,8 @@ done:
   ldx activePad
   lda #0
 .endshuffle
---setStates--
   sta das_keys,x
+--setStates--
   lda #PlayState::STILL
   sta curState
 .endshuffle
