@@ -62,7 +62,6 @@ surrounds = $01
 boardState: .res 72
 
 .segment "CODE"
-.shuffle --procs--
 SURR_NW = 1<<7
 SURR_W  = 1<<4
 SURR_SW = 1<<2
@@ -360,7 +359,6 @@ notDR:
 
   ; All the border tiles are calculated.  Time to actually put it
   ; in the buffer.
-
   ldx popslide_used
   lda card_dst_hi
   sta popslide_buf+0,x
@@ -503,10 +501,7 @@ have_center_br:
   ldy card_id
   rts
 .endproc
-.proc blitCard
-  jsr popslide_terminate_blit
-  rts
-.endproc
+
 --procs--
 ;;
 ; Clears a row of the playfield.
@@ -514,7 +509,6 @@ have_center_br:
 .proc gameOverClearRow
   lda gameOverClearTransitionY
   beq notClearOut
-  sta $4444
   ldx popslide_used
   sec
   ror a
@@ -531,8 +525,10 @@ have_center_br:
   sta popslide_buf+2,x
   lda #OUTSIDE_TABLE_TILE
   sta popslide_buf+3,x
+.shuffle
   txa
   clc
+.endshuffle
   adc #4
   sta popslide_used
   lda #0
@@ -540,6 +536,7 @@ have_center_br:
 notClearOut:
   rts
 .endproc
+
 --procs--
 ;;
 ; Makes a score update: 14 characters
@@ -674,7 +671,10 @@ tensIsZero:
     bne endcopyloop
   rts
 .endproc
+
 --procs--
+;;
+; Loads the gameplay screen.
 .proc loadPlayScreen
   jsr popslide_init
 .shuffle
@@ -784,6 +784,7 @@ copypal:
 
   rts
 .endproc
+
 --procs--
 objstrip_y = $00
 objstrip_tile = $01
@@ -857,6 +858,7 @@ objstrip_len = $04
   stx oam_used
   rts
 .endproc
+
 --procs--
 .proc drawCardSprites
 mul_temp = $05
@@ -1096,42 +1098,11 @@ notFlippingCard0:
   jsr drawOneCard
 draw_no_card:
 
-.if ::SHOW_STATE_AND_TURN
-  ldx oam_used
-  lda #11
-  sta OAM,x
-  lda #23
-  sta OAM+4,x
-  lda #35
-  sta OAM+8,x
-  lda curState
-  ora #$40
-  sta OAM+1,x
-  lda curTurn
-  ora #$40
-  sta OAM+5,x
-  lda curAIState
-  ora #$40
-  sta OAM+9,x
-  lda #2
-  sta OAM+2,x
-  sta OAM+6,x
-  sta OAM+10,x
-  lda #8
-  sta OAM+3,x
-  sta OAM+7,x
-  sta OAM+11,x
-
-  txa
-  clc
-  adc #12
-  sta oam_used
-.endif
-
   ; and clear the rest of the sprites
   ldx oam_used
   jmp ppu_clear_oam
 .endproc
+
 --procs--
 .proc drawOneCard
 mul_temp = $05
@@ -1189,8 +1160,8 @@ overriddenX:
   lda #$0F
   sta sprpal_buf+8,x
   rts
-
 .endproc
+
 --procs--
 .proc blitCardSprites
   lda #VBLANK_NMI
@@ -1228,6 +1199,7 @@ palloop:
 .endshuffle
   rts
 .endproc
+
 --procs--
 .proc initCollecting1Animation
 
@@ -1292,6 +1264,7 @@ loop2:
   bpl loop2
   rts
 .endproc
+
 --procs--
 .proc clockCollecting1Animation
 .shuffle --coords--
@@ -1325,6 +1298,7 @@ loop2:
 .endshuffle
   rts
 .endproc
+
 --procs--
 .proc initCollecting2Animation
 .shuffle --coords--
@@ -1358,6 +1332,7 @@ loop2:
 .endshuffle
   rts
 .endproc
+
 --procs--
 .proc clockCollecting2Animation
 .shuffle --coords--
@@ -1377,6 +1352,7 @@ loop2:
 .endshuffle
   rts
 .endproc
+
 --procs--
 .proc clearCollectingAnimation
   lda #0
