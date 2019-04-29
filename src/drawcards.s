@@ -23,9 +23,6 @@
 sprpal_buf = $0180
 otherBuf = $018C  ; Unallocated from here to $01BF
 
-; When nonzero, show the game state, current turn, and AI state
-; as sprites in the upper left corner.
-SHOW_STATE_AND_TURN = 0
 ; The display engine can draw the backs of remembered cards in white
 ; as a tool for troubleshooting AI. It's a bit glitchy on the borders
 ; when an adjacent card redraws.

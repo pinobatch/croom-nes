@@ -17,6 +17,7 @@
 ;
 .include "nes.inc"
 .include "global.inc"
+.include "popslide.inc"
 
 CREDITS_MODE = 4
 
@@ -135,49 +136,44 @@ pressedOtherButton:
 .proc titleScreen
 NUM_MODES = 3
 mode = 6
+
+  ; Start by loading a black palette
   lda #VBLANK_NMI
-.shuffle
   sta PPUCTRL
-  ldy #0
-.endshuffle
+  asl a
 .shuffle
-  sty PPUMASK
+  sta PPUMASK
   ldx #$3F
 .endshuffle
   stx PPUADDR
 .shuffle
-  sty PPUADDR
+  sta PPUADDR
   lda #$0F
 .endshuffle
-.shuffle
   sta PPUDATA
+
+  jsr popslide_init
+.shuffle
+  lda #0
   ldx #$20
 .endshuffle
-  stx PPUADDR
-.shuffle
-  sty PPUADDR
-  lda #< title_pkb
-.endshuffle
-  sta 0
-  lda #> title_pkb
-  sta 1
-  jsr PKB_unpackblk
+  tay
+  jsr ppu_clear_nt
 
-; load palette
-  lda #$3F
+  sta $4444
 .shuffle
-  sta PPUADDR
-  ldx #0
+  ldx #>title_stripe_1
+  lda #<title_stripe_1
 .endshuffle
-  stx PPUADDR
-:
-  lda title_palette,x
+  jsr nstripe_append
+  jsr popslide_terminate_blit
 .shuffle
-  sta PPUDATA
-  inx
+  ldx #>title_stripe_2
+  lda #<title_stripe_2
 .endshuffle
-  cpx #32
-  bcc :-
+  jsr nstripe_append
+  jsr ppu_wait_vblank
+  jsr popslide_terminate_blit
 
 mainMenu:
 .shuffle
@@ -783,10 +779,6 @@ hombon_map:
 intro_palette:
   .byt $20,$27,$00,$00,$0F
 --arrays--
-title_palette:
-  .byt $30,$10,$00,$0F,$30,$10,$00,$0F,$30,$10,$00,$0F,$30,$10,$00,$0F
-  .byt $30,$10,$00,$0F,$30,$10,$00,$0F,$30,$10,$00,$0F,$30,$10,$00,$0F
---arrays--
 title_pkb:
   .incbin "src/litetitle.pkb"
 --arrays--
@@ -805,4 +797,51 @@ difficultyMenu:
   .byt "Junior High",$0A
   .byt "High School",$0A
   .byt "Lab Technician",$0A,$00
+--arrays--
+
+title_stripe_1:
+  ; Top and bottom borders
+  .dbyt $2000
+  .byte $7F, $03
+  .dbyt $2380
+  .byte $7F, $03
+
+  ; Notices
+  .dbyt $21A5
+  .byte 21,"Accident at Hombon Lab"
+  .dbyt $2303
+  .byte 25,$07," 2010,2019 Damian Yerrick"
+  .dbyt $2323
+  .byte 4,"v0.03"
+  .dbyt $232F
+  .byte 13,"Select:notices"
+
+  ; "Concentration"
+  .dbyt $2086
+  .byte 1,$80,$81
+  .dbyt $2090
+  .byte 6,$8A,$00,$00,$00,$8E,$8F,$85
+  .dbyt $20A6
+  .byte 19,$90,$91,$92,$93,$94,$95,$96,$97,$98,$99,$9A,$9B,$9C,$9D,$9E,$9F,$82,$83,$84,$99
+  .dbyt $20C6
+  .byte 19,$A0,$A1,$A2,$A3,$A4,$A5,$A6,$A7,$A8,$A9,$AA,$AB,$AC,$AD,$AE,$AF,$8B,$8C,$8D,$A9
+  .byte $FF
+
+title_stripe_2:
+  ; "Room"
+  .dbyt $2106
+  .byte 19,$08,$03,$03,$09,$00,$08,$03,$03,$09,$00,$08,$03,$03,$09,$00,$08,$03,$03,$03,$09
+  .dbyt $2126
+  .byte 19,$03,$86,$06,$03,$00,$03,$86,$87,$03,$00,$03,$86,$87,$03,$00,$03,$86,$03,$87,$03
+  .dbyt $2146
+  .byte 19,$03,$03,$03,$0B,$00,$03,$88,$89,$03,$00,$03,$88,$89,$03,$00,$03,$00,$03,$00,$03
+  .dbyt $2166
+  .byte 19,$03,$00,$0A,$09,$00,$0A,$03,$03,$0B,$00,$0A,$03,$03,$0B,$00,$03,$00,$03,$00,$03
+
+  ; Set the actual palette
+  .dbyt $3F00
+  .byte 3, $20,$10,$00,$0F
+  .dbyt $3F11
+  .byte 2, $10,$00,$0F
+  .byte $FF
 .endshuffle

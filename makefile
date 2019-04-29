@@ -14,7 +14,7 @@ objlist := \
   litemain litetitle liteopponents \
   memorygame drawcards shuffle aidiocy \
   pads ppuclear unpkb bcd pentlysound pentlymusic musicseq \
-  popslide16
+  popslide16 nstripe
 
 CC65 = /usr/local/bin
 AS65 = ca65
@@ -95,7 +95,6 @@ $(objdir)/pentlysound.shuffle.o $(objdir)/pentlymusic.shuffle.o: \
 
 # incbins
 
-$(objdir)/litetitle.shuffle.o: $(srcdir)/litetitle.pkb
 $(objdir)/liteopponents.shuffle.o: $(srcdir)/litetable.pkb
 $(objdir)/litemain.shuffle.o: $(objdir)/titlegfx.chr $(objdir)/gamegfx.chr
 

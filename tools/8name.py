@@ -209,6 +209,7 @@ class TilePicker(Frame):
         self.attrPicker = None
         self.status = None
         self.curTile = 0
+        self.lastX = self.lastY = 0
         self.setAttribute(0)
         self.tilePicker = Label(self, image=self.tilePickerPI,
                                 width=128, borderwidth=0)
@@ -251,7 +252,9 @@ class TilePicker(Frame):
     def setStatus(self):
         if self.status is None:
             return
-        label = "tile $%02x attr %d" % (self.curTile, self.curAttribute)
+        addr = 0x2000 | (self.lastY << 5) | self.lastX
+        label = ("tile $%02x attr %d\naddr $%04x (%d, %d)"
+                 % (self.curTile, self.curAttribute, addr, self.lastX, self.lastY))
         self.status.configure(text=label)
 
     def tilePickerCallback(self, event):
@@ -477,6 +480,7 @@ class App:
             x = event.x // 16
             y = event.y // 16
             (tile, attribute) = self.doc.getTile(x, y)
+            self.tilePicker.lastX, self.tilePicker.lastY = x, y
             self.tilePicker.curTile = tile
             self.tilePicker.setAttribute(attribute)
             return
@@ -485,6 +489,7 @@ class App:
         if event.x >= 0 and event.x < 512 and event.y >= 0 and event.y < 512:
             x = event.x // 16
             y = event.y // 16
+            self.tilePicker.lastX, self.tilePicker.lastY = x, y
             t = self.tilePicker.curTile
             a = self.tilePicker.curAttribute
             self.doc.setTile(x, y, t, a)
