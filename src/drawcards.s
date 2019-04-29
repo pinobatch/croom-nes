@@ -686,68 +686,32 @@ tensIsZero:
   stx cursor_sprite_y
   sta PPUCTRL
 .endshuffle
-  ldx #0
+  ldy #0
 .shuffle
-  stx collectingY+0
-  stx collectingY+1
-  stx collectingX+0
-  stx collectingX+1
-  stx PPUMASK
-  lda #$20
+  sty collectingY+0
+  sty collectingY+1
+  sty collectingX+0
+  sty collectingX+1
+  sty PPUMASK
+  lda #$03
+.endshuffle
+  ldx #$20
+  jsr ppu_clear_nt
+
+  ; Set status bar attributes: 2 for player 1, 3 for player 2
+.shuffle
+  lda #$23
+  ldx #$F8
+  ldy #$0A
 .endshuffle
   sta PPUADDR
+.shuffle
   stx PPUADDR
-.shuffle
-  lda #3
-  ldx #48
-.endshuffle
-:
-  sta PPUDATA
-  sta PPUDATA
-  dex
-  bne :-
-  
-  ; draw main play area
-  ldy #25
-main_area_rowloop:
-  sta PPUDATA
-  sta PPUDATA
-.shuffle
-  lda #2
-  ldx #14
-.endshuffle
-:
-  sta PPUDATA
-  sta PPUDATA
-  dex
-  bne :-     
-  lda #3
-  sta PPUDATA
-  sta PPUDATA
-  dey
-  bne main_area_rowloop
-
-  ; black area behind the status bar
-  ldy #64
-:
-  sta PPUDATA
-  dey
-  bne :-
-
-  ; Set attributes: 0 for playfield, 2 for player 1, 3 for player 2  
-.shuffle
-  ldx #56
-  lda #0
-.endshuffle
-:
-  sta PPUDATA
-  dex
-  bne :-
-  lda #$0A
-  .repeat 4
-    sta PPUDATA
-  .endrepeat
   lda #$0F
+.endshuffle
+  .repeat 4
+    sty PPUDATA
+  .endrepeat
   .repeat 4
     sta PPUDATA
   .endrepeat
@@ -769,7 +733,7 @@ main_area_rowloop:
 
 .shuffle
   lda #$3F
-  ldx #0
+  ldx #$00
 .endshuffle
   sta PPUADDR
   stx PPUADDR
