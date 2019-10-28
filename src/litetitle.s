@@ -160,7 +160,6 @@ mode = 6
   tay
   jsr ppu_clear_nt
 
-  sta $4444
 .shuffle
   ldx #>title_stripe_1
   lda #<title_stripe_1
@@ -651,22 +650,22 @@ openingText:
   .byt "Third Realm from the Sun,",$0A
   .byt "a team of biochemists were",$0A
   .byt "perfecting a truth serum.",$0A
-  .byt "Codenamed Pinenut, the serum",$0A
-  .byt "was intended to make it more",$0A
-  .byt "difficult for a detainee to",$0A
-  .byt "keep a secret from police",$0A
+  .byt 34,"Pinenut",34," was intended",$0A
+  .byt "to make it harder for",$0A
+  .byt "a detainee to keep",$0A
+  .byt "a secret from police",$0A
   .byt "and to make the physical",$0A
-  .byt "tells of deception more",$0A
-  .byt "obvious.",$0A
+  .byt "tells of deception",$0A
+  .byt "easier to spot.",$0A
   .byt "",$0A
   .byt "But a lab accident at",$0A
-  .byt "Hombon Pharma led to the",$0A
-  .byt "creation of a mildly",$0A
+  .byt "Hombon Pharma led to",$0A
+  .byt "the creation of a mildly",$0A
   .byt "neurotoxic substance.",$0A
-  .byt "Lab assistants were exposed",$0A
-  .byt "to this ",34,"bad batch",34,$0A
-  .byt "before it could be",$0A
-  .byt "properly cleaned up.",$0A
+  .byt "Lab assistants were",$0A
+  .byt "exposed to this ",34,"bad",$0A
+  .byt "batch",34," before it could",$0A
+  .byt "be properly cleaned up.",$0A
   .byt "To make things worse, it",$0A
   .byt "had to happen on Bring",$0A
   .byt "Your Child to Work Day.",$0A
@@ -677,11 +676,11 @@ openingText:
   .byt "bodies eliminated the toxin.",$0A
   .byt "It caused painful seizures",$0A
   .byt "until they started thinking",$0A
-  .byt "of other things to get their",$0A
-  .byt "mind off the pain.",$0A
-  .byt "One of the children in",$0A
-  .byt "quarantine was carrying a",$0A
-  .byt "deck of Concentration cards.",$0A
+  .byt "of other things to get",$0A
+  .byt "their mind off the pain.",$0A
+  .byt "One of the children",$0A
+  .byt "brought out a deck of",$0A
+  .byt "Concentration cards.",$0A
   .byt "It worked.",$0A
   .byt "",$0A
   .byt "The more intensely they",$0A
@@ -778,9 +777,6 @@ hombon_map:
 --arrays--
 intro_palette:
   .byt $20,$27,$00,$00,$0F
---arrays--
-title_pkb:
-  .incbin "src/litetitle.pkb"
 --arrays--
 titleMenus:
   .addr mainMenu, difficultyMenu
