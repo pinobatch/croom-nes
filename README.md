@@ -62,22 +62,37 @@ Pairs early in a game require more skill to clear, and the last pair requires ab
 
 "What's that font?"
 
-* The font in the game's logo is called [Wasted Collection]. The font in [Multiboot Menu] for Game Boy Advance was based on it. <a title="Launcher for small programs for Game Boy Advance" href="http://www.pineight.com/gba/#mbmenu">Multiboot Menu</a> was based on it.
+* The font in the game's logo is called [Wasted Collection]. The font in [Multiboot Menu] for Game Boy Advance was based on it.
 * The monospace font for menu text originally appeared in the "Who's Cuter" demo and is based on Apple [Chicago] by Susan Kare.
 
-"Are you a Nazi?"
-No, and that's why this game is called Concentration *Room,* not [Concentration Camp][National Lampoon video].
+"Why those colors for the card suits?"
 
-[Waluigious Dian Shi Mali]: http://www.waluigious.com/2008/09/in-which-dian-shi-ma-li.html
+A [no-revoke playing card deck] gives each of the four suits a
+different color to reduce the chance of playing a card that fails
+to follow suit.  The first such deck in the United States was the
+"Seminole Wars Deck" introduced by J. Y. Humphreys in 1819, with
+blue spades, red hearts, yellow diamonds, and green clubs.
+The decks in High School and Lab Technician difficulties contain
+the card suits among the emblems, using a similar color scheme with
+evenly spaced hues based on the four hues of Apple II high-resolution
+graphics, with purple hearts and orange diamonds.  These somewhat
+resemble the marshmallow pieces in Lucky Charms cereal.
+
+"Are you a Nazi?"
+
+Heck no.  That's why this game is called Concentration *Room,*
+not anything involving a "Camp."
+
+[Waluigious Dian Shi Mali]: http://web.archive.org/web/20100121033942/http://www.waluigious.com:80/2008/09/in-which-dian-shi-ma-li.html
 [Wikipedia Dian Shi Mali]: https://en.wikipedia.org/wiki/Dian_Shi_Mali
-[Dian Shi Mali video]: https://www.youtube.com/watch?v=4s1mAPISOzw
+[Dian Shi Mali video]: https://www.youtube.com/watch?v=eIBEO3TrACk
 [President video]: https://www.youtube.com/watch?v=GY693NxC9xU
 [Pin Eight]: https://pineight.com/
 [free software]: https://www.gnu.org/philosophy/free-sw.html
-[Wasted Collection]: http://www.windowfonts.com/fonts/wasted-collection.html
+[Wasted Collection]: https://www.wfonts.com/font/wasted-collection
 [Multiboot Menu]: https://pineight.com/gba/#mbmenu
-[Chicago]: http://en.wikipedia.org/wiki/Chicago_%28typeface%29
-[National Lampoon video]: http://www.youtube.com/watch?v=cXeHn9k27Iw
+[Chicago]: https://en.wikipedia.org/wiki/Chicago_%28typeface%29
+[no-revoke playing card deck]: https://en.wikipedia.org/wiki/Four-color_deck
 
 Legal
 -----
