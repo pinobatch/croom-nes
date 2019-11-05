@@ -233,16 +233,7 @@ difficultyOtherButton:
   clc
 .endshuffle
   sta OAM_DMA
-:
-  .repeat 16,I
-  lda xferBuf+I,x
-  sta PPUDATA
-  .endrepeat
-  txa
-  adc #16
-  tax
-  cpx #160
-  bcc :-
+  jsr popslide_terminate_blit
 .shuffle --finishparts--
   lda #0
   sta PPUSCROLL
@@ -255,71 +246,20 @@ difficultyOtherButton:
 .endproc
 --procs--
 
-.proc titleClearSubmenu
-.shuffle
-  ldx #159
-  lda #0
-.endshuffle
-.shuffle --firstandrest--
-  sta xferBuf
---firstandrest--
-:
-  sta xferBuf,x
-  dex
-  bne :-
-.endshuffle
-  rts
-.endproc
---procs--
-
 .proc titleLoadMenu
-textBase = 0
-rowStart = 2
+  pha
   asl a
   tax
-.shuffle --lohi--
-  lda titleMenus,x
-  sta textBase
---lohi--
+  lda titleMenus+0,x
+  tay
   lda titleMenus+1,x
-  sta textBase+1
-.endshuffle
-  jsr titleClearSubmenu
-  lda #8
-.shuffle
-  sta rowStart
-  ldy #0
-.endshuffle
-lineLoop:
-  ldx rowStart
-charLoop:
-  lda (textBase),y
-  beq out
-  cmp #$0A
-  beq newline
-  sta xferBuf,x
-  inx
-  iny
-  bne charLoop
-out:
-  lda rowStart
-  lsr a
-  lsr a
-  lsr a
-  lsr a
-  lsr a
+  tax
+  tya
+  jsr nstripe_append
+  pla
+  tax
+  lda titleMenusNumberOfItems,x
   rts
-newline:
-.shuffle
-  iny
-  lda rowStart
-  clc
-.endshuffle
-  adc #32
-  sta rowStart
-  cmp #160
-  bcc lineLoop
-  bcs out
 .endproc
 --procs--
 
@@ -781,18 +721,46 @@ intro_palette:
 titleMenus:
   .addr mainMenu, difficultyMenu
 --arrays--
+titleMenusNumberOfItems:
+  .byt 4, 5
+--arrays--
 mainMenu:
-  .byt "1 Player Story",$0A
-  .byt "1 Player Solitaire",$0A
-  .byt "2 Players",$0A
-  .byt "Vs. CPU",$0A,$00
+  .dbyt $2208
+  .byte 14-1, "1 Player Story"
+  .dbyt $2228
+  .byte 18-1, "1 Player Solitaire"
+  .dbyt $2248
+  .byte 11-1, "2 Players", $00, $00  ; 2 zero bytes to clear other menu garbage
+  .dbyt $2268
+  .byte 7-1, "Vs. CPU"
+
+; clean up bits of garbage from other menu
+  .dbyt $2268+7
+  .byte $40+((11-7)-1), $00
+  .dbyt $2288
+  .byte $40+(14-1), $00
+
+  .byte $FF
 --arrays--
 difficultyMenu:
-  .byt "Preschool",$0A
-  .byt "Elementary",$0A
-  .byt "Junior High",$0A
-  .byt "High School",$0A
-  .byt "Lab Technician",$0A,$00
+  .dbyt $2208
+  .byte 9-1, "Preschool"
+  .dbyt $2228
+  .byte 10-1, "Elementary"
+  .dbyt $2248
+  .byte 11-1, "Junior High"
+  .dbyt $2268
+  .byte 11-1, "High School"
+  .dbyt $2288
+  .byte 14-1, "Lab Technician"
+
+; clean up bits of garbage from other menu
+  .dbyt $2208+9
+  .byte $40+((14-9)-1), $00
+  .dbyt $2228+10
+  .byte $40+((18-10)-1), $00
+
+  .byte $FF
 --arrays--
 
 title_stripe_1:

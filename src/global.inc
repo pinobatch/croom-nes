@@ -5,7 +5,6 @@
 ; provided the copyright notice and this notice are preserved.
 ; This file is offered as-is, without any warranty.
 
-xferBuf = $0100
 OAM = $0200
 FIELD_WID = 9
 FIELD_HT = 8
