@@ -19,12 +19,15 @@
 .include "global.inc"
 .include "popslide.inc"
 
-CREDITS_MODE = 4
+CREDITS_MODE = 6
 
 ; Turn this on for semipublic beta test builds that aren't officially
 ; released on pineight.com.  It provides notice that this build is
 ; not subject to the license exception for unmodified binaries.
 COPYLEFT_FBI_WARNING = 0
+
+.segment "ZEROPAGE"
+  chr_ram_detected: .res 1
 
 .segment "CODE"
 .shuffle --procs--
@@ -152,6 +155,8 @@ mode = 6
 .endshuffle
   sta PPUDATA
 
+  jsr read_pads  ; prevent automaticaly starting a game when holding A from reset
+
   jsr popslide_init
 .shuffle
   lda #0
@@ -159,6 +164,17 @@ mode = 6
 .endshuffle
   tay
   jsr ppu_clear_nt
+
+  ldy #$10
+  lda #$02
+  sty PPUADDR
+  sty PPUADDR
+  sta PPUDATA
+  sty PPUADDR
+  sty PPUADDR
+  lda PPUDATA
+  lda PPUDATA
+  sta chr_ram_detected
 
 .shuffle
   ldx #>title_stripe_1
@@ -176,7 +192,7 @@ mode = 6
 
 mainMenu:
 .shuffle
-  lda #0
+  lda chr_ram_detected
   ldy #0
   ldx #KEY_SELECT
 .endshuffle
@@ -188,6 +204,8 @@ isSelectButton:
   rts
 notSelectButton:
   beq constantDifficulty
+  cmp #4
+  bcs constantDifficulty
   
 difficultyMenu:
 .shuffle
@@ -719,10 +737,10 @@ intro_palette:
   .byt $20,$27,$00,$00,$0F
 --arrays--
 titleMenus:
-  .addr mainMenu, difficultyMenu
+  .addr mainMenu, difficultyMenu, mainMenuWithEditor
 --arrays--
 titleMenusNumberOfItems:
-  .byt 4, 5
+  .byt 4, 5, 6
 --arrays--
 mainMenu:
   .dbyt $2208
@@ -734,7 +752,7 @@ mainMenu:
   .dbyt $2268
   .byte 7-1, "Vs. CPU"
 
-; clean up bits of garbage from other menu
+; clean up bits of garbage from difficultyMenu
   .dbyt $2268+7
   .byte $40+((11-7)-1), $00
   .dbyt $2288
@@ -754,11 +772,33 @@ difficultyMenu:
   .dbyt $2288
   .byte 14-1, "Lab Technician"
 
-; clean up bits of garbage from other menu
+; clean up bits of garbage from mainMenu
   .dbyt $2208+9
   .byte $40+((14-9)-1), $00
   .dbyt $2228+10
   .byte $40+((18-10)-1), $00
+  .dbyt $22a8
+  .byte $40+(4-1), $00
+
+  .byte $FF
+--arrays--
+mainMenuWithEditor:
+  .dbyt $2208
+  .byte 14-1, "1 Player Story"
+  .dbyt $2228
+  .byte 18-1, "1 Player Solitaire"
+  .dbyt $2248
+  .byte 11-1, "2 Players", $00, $00
+  .dbyt $2268
+  .byte 7-1, "Vs. CPU"
+  .dbyt $2288
+  .byte 14-1, "Emblem Editor", $00
+  .dbyt $22a8
+  .byte 4-1, "Exit"
+
+; clean up bits of garbage from difficultyMenu
+  .dbyt $2268+7
+  .byte $40+((11-7)-1), $00
 
   .byte $FF
 --arrays--

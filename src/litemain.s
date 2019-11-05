@@ -142,7 +142,7 @@ titleLoop:
 .segment "RODATA"
 titleModes:
   .addr storyMode-1, solitaireMode-1, twoPlayerMode-1
-  .addr vsCPUMode-1, showLicense-1
+  .addr vsCPUMode-1, editorMode-1, doExit-1, showLicense-1
 
 .segment "CODE"
 --procs--
@@ -337,6 +337,15 @@ storyStages:
 .proc showLicense
   lda #2
   jmp scrollOpeningText
+.endproc
+--procs--
+.proc editorMode
+  lda #3
+  jmp scrollOpeningText
+.endproc
+--procs--
+.proc doExit
+  jmp ($fffc)
 .endproc
 .endshuffle
 
