@@ -298,11 +298,14 @@ standardCardSets:
 level1cards:
 level2cards:
 level5cards:
-  .byt $1C,$1D,$1E,$1F,$20  ; level 1, 2, 5
-  .byt $21,$22,$23,$24,$25  ; level 2, 5
+  .byt $1C,$1D,$1E,$1F,$20      ; level 1, 2, 5
 level3cards:
+  .byt $22,$23,$24,$25,$26      ; level 2, 3, 5
 level4cards:
-  .byt $26,$27,$2C,$2D,$2E,$2F,$30,$31,$32  ; level 3, 4, 5
-  .byt $33,$34,$35,$36,$37,$3C,$3D,$3E,$3F  ; level 3, 4, 5
-  .byt $28,$29,$2A,$2B,$38,$39,$3A,$3B  ; level 4, 5
+  .byt                     $27  ; level 3, 4, 5
+  .byt $28,$29,$2A,$2B,$2C,$2D  ; level 3, 4, 5
+  .byt $2E,$2F,$30,$31,$32,$33  ; level 3, 4, 5
+  .byt $34,$35,$36,$37,$38,$39  ; level 4, 5
+  .byt $3A,$3B,$3C,$3D,$3E,$3F  ; level 4, 5
+  .byt                     $21  ; level 4, 5
 .endshuffle
