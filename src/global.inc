@@ -78,3 +78,6 @@ DONE
 
 ; ppuclear methods
 .global ppu_clear_oam, ppu_clear_nt, ppu_screen_on, ppu_wait_vblank
+
+; emblem editor mode
+.global start_editor

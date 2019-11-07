@@ -14,7 +14,7 @@ objlist := \
   litemain litetitle liteopponents \
   memorygame drawcards shuffle aidiocy \
   pads ppuclear unpkb bcd pentlysound pentlymusic musicseq \
-  popslide16 nstripe
+  popslide16 nstripe editor
 
 CC65 = /usr/local/bin
 AS65 = ca65

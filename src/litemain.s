@@ -330,8 +330,7 @@ storyStages:
 .endshuffle
   lda #4
   jsr scrollOpeningText
-  jsr play_memory
-  rts
+  jmp play_memory
 .endproc
 --procs--
 .proc showLicense
@@ -341,7 +340,8 @@ storyStages:
 --procs--
 .proc editorMode
   lda #3
-  jmp scrollOpeningText
+  jsr scrollOpeningText
+  jmp start_editor
 .endproc
 --procs--
 .proc doExit
