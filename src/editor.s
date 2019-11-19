@@ -2,8 +2,21 @@
 .include "global.inc"
 .include "popslide.inc"
 
+.segment "ZEROPAGE"
+  current_card_id: .res 1
+  editor_pen_x: .res 1
+  editor_pen_y: .res 1
+  editor_pen_i: .res 1
+  current_emblem_pixels: .res 16
+  current_emblem_pal: .res 4
+  palette_bg: .res 1
+  palette_color_1: .res 8
+  palette_color_2: .res 8
+  palette_color_3: .res 8
+
 .segment "CODE"
 .proc start_editor
+paint_nametables:
 ppu_addr_offset = 6
 card_id = 8
 cycle_of_6 = 9
@@ -11,19 +24,49 @@ cycle_of_6 = 9
   sty PPUMASK
 .shuffle --ntclears--
 .shuffle
-  lda #$00
+  tya  ;,; lda #$00
   ldx #$20
 .endshuffle
-  tay
   jsr ppu_clear_nt
  --ntclears--
  .shuffle
   lda #$02
   ldx #$2c
-  ldy #$ab
 .endshuffle
   jsr ppu_clear_nt
 .endshuffle
+
+.shuffle
+  lda #>$23c0
+  ldy #<$23c0
+.endshuffle
+  sta PPUADDR
+  sty PPUADDR
+.shuffle
+  lda #>screen_1_attribute_table_pkb
+  ldy #<screen_1_attribute_table_pkb
+.endshuffle
+.shuffle
+  sty 0
+  sta 1
+.endshuffle
+  jsr PKB_unpackblk
+
+.shuffle
+  lda #>$2fc0
+  ldy #<$2fc0
+.endshuffle
+  sta PPUADDR
+  sty PPUADDR
+.shuffle
+  lda #>screen_2_attribute_table_pkb
+  ldy #<screen_2_attribute_table_pkb
+.endshuffle
+.shuffle
+  sty 0
+  sta 1
+.endshuffle
+  jsr PKB_unpackblk
 
   jsr popslide_init
 .shuffle
@@ -117,45 +160,102 @@ draw_cards_loop:
   cpy #$40
   bcc draw_cards_loop
 
+  jsr initalize_palette
 
   lda #VBLANK_NMI|OBJ_1000|BG_1000
   sta PPUCTRL
 
-;  lda #>$2c00
-;  sta PPUADDR
-;  lda #<$2c00
-;  sta PPUADDR
-;  lda #<screen_2_data
-;  sta data_ptr+0
-;  lda #>screen_2_data
-;  sta data_ptr+1
-;  ldx #4
-;  ldy #$00
-;  upload_loop_outer:
-;    upload_loop_inner:
-;      lda (data_ptr), y
-;      sta PPUDATA
-;      iny
-;    bne upload_loop_inner
-;    inc data_ptr+1
-;    dex
-;  bne upload_loop_outer
+  jmp editor_select_card_mode
+.endproc
 
-;  ldx popslide_used
-;
-;  sta popslide_buf+0, x
-;
-;  stx popslide_used
-;  jsr popslide_terminate_blit
+
+.proc editor_select_card_mode
+  jsr ppu_wait_vblank
+  jsr upload_palette
+
+  lda #VBLANK_NMI|OBJ_1000|BG_1000
+  ldx #256-8
+  ldy #0
+  sec
+  jsr ppu_screen_on
 
 jam: jmp jam
+
+  rts
+.endproc
+
+.proc editor_edit_card_mode
+.shuffle
+  ldx #>edit_card_text
+  lda #<edit_card_text
+.endshuffle
+  jsr nstripe_append
+  jsr popslide_terminate_blit
+
+  jsr ppu_wait_vblank
+  jsr upload_palette
+
+  lda #VBLANK_NMI|OBJ_1000|BG_1000
+  ldx #0
+  ldy #0
+  sec
+  jsr ppu_screen_on
+
+jam: jmp jam
+
+  rts
+.endproc
+
+.proc editor_edit_color_mode
+.shuffle
+  ldx #>edit_color_text
+  lda #<edit_color_text
+.endshuffle
+  jsr nstripe_append
+  jsr popslide_terminate_blit
+
+  rts
+.endproc
+
+.proc initalize_palette
+  lda #$30
+  sta palette_bg
+  ldx #8-1
+  init_loop:
+    lda #$10
+    sta palette_color_1, x
+    lda #$00
+    sta palette_color_2, x
+    lda #$0f
+    sta palette_color_3, x
+    dex
+  bpl init_loop
+  rts
+.endproc
+
+.proc upload_palette
+  lda #>$3fe0
+  sta PPUADDR
+  lda #<$3fe0
+  sta PPUADDR
+  ldx #0
+  upload_loop:
+    lda palette_bg
+    sta PPUDATA
+    lda palette_color_1, x
+    sta PPUDATA
+    lda palette_color_2, x
+    sta PPUDATA
+    lda palette_color_3, x
+    sta PPUDATA
+    inx
+    cpx #8
+  bcc upload_loop
+  rts
 .endproc
 
 .segment "RODATA"
-
-;screen_2_data:
-;  .incbin "src/card-selection.bin"
-
+.shuffle --editor_rodata--
 card_data:
   .dbyt $0c00 + NTXY(0,0)
   .byte $80 + (4-1), $28, $3d, $3d, $22
@@ -170,6 +270,7 @@ card_data_end:
 
 card_data_size = card_data_end - card_data
 
+--editor_rodata--
 editor_screen_data:
 .shuffle --screen_data_parts--
   .dbyt NTXY(12,3)
@@ -273,6 +374,7 @@ editor_screen_data:
 .endshuffle
   .byte $ff
 
+--editor_rodata--
 editor_screen_2_data:
 .shuffle --screen_data_2_parts--
   .dbyt $0c00 + NTXY(0,1)
@@ -305,41 +407,98 @@ editor_screen_2_data:
 --screen_data_2_parts--
   .dbyt $0c00 + NTXY(28,2)
   .byte $c0 + (26-1), $00
---screen_data_2_parts--
-  .dbyt NTXY(31,0)
-  .byte $c0 + (30-1), $02
+.endshuffle
+  .byte $ff
 
+--editor_rodata--
+edit_card_text:
+.shuffle --edit_card_text_parts--
+  .dbyt NTXY(2,23)
+  .byte 8-1, "A: draw "
+--edit_card_text_parts--
+  .dbyt NTXY(2,25)
+  .byte 13-1, "B: pick color"
+--edit_card_text_parts--
+  .dbyt NTXY(19,25)
+  .byte 11-1, "Start: done"
+--edit_card_text_parts--
+  .dbyt NTXY(2,27)
+  .byte 18-1, "Select: edit color"
+--edit_card_text_parts--
+  .dbyt NTXY(15,25)
+  .byte $40 + 4-1, $03
+--edit_card_text_parts--
+  .dbyt NTXY(20,27)
+  .byte $40 + 10-1, $03
+.endshuffle
+  .byte $ff
+
+--editor_rodata--
+edit_color_text:
+.shuffle --edit_color_text_parts--
+  .dbyt NTXY(2,23)
+  .byte 6-1, "Color "
+--edit_color_text_parts--
+  .dbyt NTXY(2,25)
+  .byte 7-1, $0e, $0f, ": hue"
+--edit_color_text_parts--
+  .dbyt NTXY(21,25)
+  .byte 9-1, "A: accept"
+--edit_color_text_parts--
+  .dbyt NTXY(2,27)
+  .byte 14-1, $0c, $0d, ": brightness"
+--edit_color_text_parts--
+  .dbyt NTXY(21,27)
+  .byte 9-1, "B: cancel"
+--edit_color_text_parts--
+  .dbyt NTXY(9,25)
+  .byte $40 + 12-1, $03
+--edit_color_text_parts--
+  .dbyt NTXY(16,27)
+  .byte $40 + 5-1, $03
+.endshuffle
+  .byte $ff
+
+--editor_rodata--
+screen_1_attribute_table_pkb:
+;00000000: aa aa aa aa aa aa aa aa 66 55 aa 00 00 00 00 00  ........fU......
+;00000010: 66 45 aa 00 00 00 00 00 a6 a5 aa 00 00 00 00 00  fE..............
+;00000020: 22 00 aa 00 00 00 00 00 fa fa fa a0 a0 a0 a0 a0  "...............
+;00000030: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff  ................
+  .dbyt 64
+  .byte $101-8, $aa
+  .byte -1+3, $66, $55, $aa
+  .byte $101-5, $00
+  .byte -1+3, $66, $45, $aa
+  .byte $101-5, $00
+  .byte -1+3, $a6, $a5, $aa
+  .byte $101-5, $00
+  .byte -1+3, $22, $00, $aa
+  .byte $101-5, $00
+  .byte $101-3, $fa
+  .byte $101-5, $a0
+  .byte $101-16, $ff
+
+--editor_rodata--
+screen_2_attribute_table_pkb:
 ;000003c0: 95 a5 a5 a5 a5 a5 a5 55 99 ab ab ab ab ab ab 55  .......U.......U
 ;000003d0: 99 ab ab ab ab ab ab 55 99 ab ab ab ab ab ab 55  .......U.......U
 ;000003e0: 99 ab ab ab ab ab ab 55 99 ab ab ab ab ab ab 55  .......U.......U
 ;000003f0: 99 ab ab ab ab ab ab 55 55 55 55 55 55 55 55 55  .......UUUUUUUUU
-; This may not be the best data structure for attributes
---screen_data_2_parts--
-  .dbyt $2fc0
-  .byte $00 + (1-1), $95
---screen_data_2_parts--
-  .dbyt $2fc1
-  .byte $40 + (6-1), $a5
---screen_data_2_parts--
-  .dbyt $2fc7
-  .byte $00 + (2-1), $55, $99
---screen_data_2_parts--
-  .dbyt $2fcf
-  .byte $00 + (2-1), $55, $99
---screen_data_2_parts--
-  .dbyt $2fd7
-  .byte $00 + (2-1), $55, $99
---screen_data_2_parts--
-  .dbyt $2fdf
-  .byte $00 + (2-1), $55, $99
---screen_data_2_parts--
-  .dbyt $2fe7
-  .byte $00 + (2-1), $55, $99
---screen_data_2_parts--
-  .dbyt $2fef
-  .byte $00 + (2-1), $55, $99
---screen_data_2_parts--
-  .dbyt $2ff7
-  .byte $40 + (9-1), $55
+  .dbyt 64
+  .byte -1+1, $95
+  .byte $101-6, $a5
+  .byte -1+2, $55, $99
+  .byte $101-6, $ab
+  .byte -1+2, $55, $99
+  .byte $101-6, $ab
+  .byte -1+2, $55, $99
+  .byte $101-6, $ab
+  .byte -1+2, $55, $99
+  .byte $101-6, $ab
+  .byte -1+2, $55, $99
+  .byte $101-6, $ab
+  .byte -1+2, $55, $99
+  .byte $101-6, $ab
+  .byte $101-9, $55
 .endshuffle
-  .byte $ff
