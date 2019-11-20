@@ -44,6 +44,7 @@ DONE
 .global initCollecting1Animation, clockCollecting1Animation
 .global initCollecting2Animation, clockCollecting2Animation
 .global clearCollectingAnimation
+.global initCardPalettes
 
 ; shuffle fields
 .globalzp rand3, rand2, rand1, rand0

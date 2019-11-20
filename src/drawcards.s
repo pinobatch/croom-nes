@@ -51,6 +51,9 @@ cursor_sprite_x: .res 1  ; 32 to 224
 cursor_sprite_y: .res 1  ; 39 to 207
 curTurn: .res 1         ; 0: player; 1: cpu or player 2
 oam_used: .res 1
+card_palette_color_1: .res 36
+card_palette_color_2: .res 36
+card_palette_color_3: .res 36
 .endshuffle
 
 surrounds = $01
@@ -1111,15 +1114,15 @@ overriddenX:
   jsr draw16x16
 
   lda mul_temp
-  asl a
-  tay
-  ldx cards_left
-  lda card_palettes-56,y
-  sta sprpal_buf,x
-  lda card_palettes-55,y
-  sta sprpal_buf+4,x
-  lda #$0F
-  sta sprpal_buf+8,x
+;  asl a
+  tax
+  ldy cards_left
+  lda card_palette_color_1-28, x
+  sta sprpal_buf,y
+  lda card_palette_color_2-28, x
+  sta sprpal_buf+4,y
+  lda card_palette_color_3-28, x
+  sta sprpal_buf+8,y
   rts
 .endproc
 
@@ -1325,6 +1328,25 @@ loop2:
 .endshuffle
   rts
 .endproc
+
+--procs--
+.proc initCardPalettes
+  ldy #0
+  ldx #0
+  loop:
+    lda default_card_palettes, y
+    sta card_palette_color_1, x
+    lda default_card_palettes+1, y
+    sta card_palette_color_2, x
+    lda #$0f
+    sta card_palette_color_3, x
+    inx
+    iny
+    iny
+    cpy #36*2
+  bcc loop
+rts
+.endproc
 .endshuffle
 
 .segment "RODATA"
@@ -1343,7 +1365,7 @@ scoreBoxAddrLo:  ; scoreBox goes at $23xx in vram
 scoreBoxSprX:    ; where tiles go
   .byt $20, $90
 --vars--
-card_palettes:
+default_card_palettes:
   .dbyt                         $161A,$1609,$2717,$3617
   .dbyt $2919,$271A,$1018,$1018,$1016,$1018,$2202,$2817
   .dbyt $2716,$101A,$2616,$1000,$2811,$1011,$2718,$2728

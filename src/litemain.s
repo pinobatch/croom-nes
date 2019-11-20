@@ -104,6 +104,8 @@ clear_zp:
   inx
   stx rand0
 
+  jsr initCardPalettes
+
   jsr pently_init
   ; Wait for the PPU to warm up (part 2 of 2)
 vwait2:
