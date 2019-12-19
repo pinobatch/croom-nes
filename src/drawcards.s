@@ -51,9 +51,9 @@ cursor_sprite_x: .res 1  ; 32 to 224
 cursor_sprite_y: .res 1  ; 39 to 207
 curTurn: .res 1         ; 0: player; 1: cpu or player 2
 oam_used: .res 1
-card_palette_color_1: .res 36
-card_palette_color_2: .res 36
-card_palette_color_3: .res 36
+cardPalette_1: .res 36
+cardPalette_2: .res 36
+cardPalette_3: .res 36
 .endshuffle
 
 surrounds = $01
@@ -1117,11 +1117,11 @@ overriddenX:
 ;  asl a
   tax
   ldy cards_left
-  lda card_palette_color_1-28, x
+  lda cardPalette_1-28, x
   sta sprpal_buf,y
-  lda card_palette_color_2-28, x
+  lda cardPalette_2-28, x
   sta sprpal_buf+4,y
-  lda card_palette_color_3-28, x
+  lda cardPalette_3-28, x
   sta sprpal_buf+8,y
   rts
 .endproc
@@ -1335,11 +1335,11 @@ loop2:
   ldx #0
   loop:
     lda default_card_palettes, y
-    sta card_palette_color_1, x
+    sta cardPalette_1, x
     lda default_card_palettes+1, y
-    sta card_palette_color_2, x
+    sta cardPalette_2, x
     lda #$0f
-    sta card_palette_color_3, x
+    sta cardPalette_3, x
     inx
     iny
     iny

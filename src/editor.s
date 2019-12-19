@@ -3,16 +3,17 @@
 .include "popslide.inc"
 
 .segment "ZEROPAGE"
+.shuffle
   current_card_id: .res 1
   editor_pen_x: .res 1
   editor_pen_y: .res 1
   editor_pen_i: .res 1
   current_emblem_pixels: .res 16
-  current_emblem_pal: .res 4
   palette_bg: .res 1
   palette_color_1: .res 8
   palette_color_2: .res 8
   palette_color_3: .res 8
+.endshuffle
 
 .segment "CODE"
 .proc start_editor
@@ -83,8 +84,14 @@ cycle_of_6 = 9
   jsr nstripe_append
   jsr popslide_terminate_blit
 
+  lda #0
+  sta editor_pen_x
+  sta editor_pen_y
+  sta editor_pen_i
+
   lda #28
   sta card_id
+  sta current_card_id
   lda #<$2c63
   sta ppu_addr_offset+0
   lda #>$2c63
@@ -160,8 +167,6 @@ draw_cards_loop:
   cpy #$40
   bcc draw_cards_loop
 
-  jsr initalize_palette
-
   lda #VBLANK_NMI|OBJ_1000|BG_1000
   sta PPUCTRL
 
@@ -170,21 +175,254 @@ draw_cards_loop:
 
 
 .proc editor_select_card_mode
+objstrip_y = $00
+objstrip_tile = $01
+objstrip_attr = $02
+objstrip_x = $03
+objstrip_len = $04
+cardobj_x = $06
+cardobj_y = $07
+  ldy #$00
+  sty PPUMASK
+
+  jsr initalize_palette
+  lda #$3c
+  sta palette_color_2+1
+  lda #$30
+  sta palette_color_2+2
+  sta palette_color_1+6
+  ldx #0
+  jsr ppu_clear_oam
+
+main_loop:
   jsr ppu_wait_vblank
+  lda #>OAM
+  sta OAM_DMA
+  jsr pently_update
   jsr upload_palette
 
-  lda #VBLANK_NMI|OBJ_1000|BG_1000
+  lda #VBLANK_NMI|OBJ_1000|BG_1000|NT_2800
   ldx #256-8
   ldy #0
   sec
   jsr ppu_screen_on
 
-jam: jmp jam
+  jsr read_pads
+  ldx #0
+  jsr autorepeat
 
-  rts
+  lda new_keys
+  and #KEY_UP
+  beq :+
+    sec
+    lda current_card_id
+    sbc #6
+    sta current_card_id
+  :
+  lda new_keys
+  and #KEY_DOWN
+  beq :+
+    clc
+    lda current_card_id
+    adc #6
+    sta current_card_id
+  :
+  lda new_keys
+  and #KEY_LEFT
+  beq :+
+    dec current_card_id
+  :
+  lda new_keys
+  and #KEY_RIGHT|KEY_SELECT
+  beq :+
+    inc current_card_id
+  :
+  lda current_card_id
+  cmp #64
+  bcc :+
+    sec
+    sbc #64-28
+  :
+  cmp #28
+  bcs :+
+    clc
+    adc #64-28
+  :
+  sta current_card_id
+
+  lda new_keys
+  and #KEY_A|KEY_START
+  beq :+
+    jmp editor_edit_card_mode
+  :
+
+  lda new_keys
+  and #KEY_B
+  beq :+
+    rts
+  :
+
+  ; figure out arrow position from selected card id.
+  ; It'll be just "simply" be a div 6 and a mod 6, right?
+  ; thanks to Omegamatritempx of nesdev for the div/mod 6 routines
+  ; http://forums.nesdev.com/viewtopic.php?f=2&t=11336
+
+  lda current_card_id
+  sec
+  sbc #28
+;Mod 6
+;28 bytes, 43 cycles
+  sta  0
+  lsr
+  adc  #21
+  lsr
+  adc  0
+  ror
+  lsr
+  adc  0
+  ror
+  lsr
+  adc  0
+  ror
+  and  #$FC
+  sta  1
+  lsr
+  adc  1
+  sbc  0
+  eor  #$FF
+  sta cursor_x
+
+  lda current_card_id
+  sec
+  sbc #28
+;Divide by 6
+;17 bytes, 30 cycles
+  lsr
+  sta  0
+  lsr
+  lsr
+  adc  0
+  ror
+  lsr
+  adc  0
+  ror
+  lsr
+  adc  0
+  ror
+  lsr
+  sta cursor_y
+
+  ldx #0
+  stx oam_used
+
+; I can't simply hook into drawArrow of drawCardSprites in drawcards.s
+; because the spaceing between cards are diffrent. :(
+; mabye in the future drawArrow can be a subroutine that take's
+; a grid transform as a parameter
+  ; Place the arrow at (24 * X + 32, 24 * Y + 28)
+  ; new coordinates: (32 * X + 48, 32 * Y + 44)
+  lda cursor_x
+  asl a
+  asl a
+  asl a
+  asl a
+  asl a
+  ;,; clc
+  adc #40
+  pha  ; stash the X coordinates of the card
+  ;,; clc
+  adc #8
+
+  ; First order low pass filtering on the cursor x position
+  sec
+  sbc cursor_sprite_x
+  bcs arrow_to_right
+    lsr a
+    lsr a
+    ora #$C0
+  bne arrow_x_done
+  arrow_to_right:
+    ;,; sec
+    adc #2    ; +3 to round up, instead of rounding down
+    lsr a
+    lsr a
+  arrow_x_done:
+  clc
+  adc cursor_sprite_x
+  sta cursor_sprite_x
+  sta objstrip_x
+
+  lda cursor_y
+  asl a
+  asl a
+  asl a
+  asl a
+  asl a
+  ;,; clc
+  adc #32-1
+  pha  ; stash the Y coordinates of the card
+  ;,; clc
+  adc #12
+
+  ; First order low pass filtering on the cursor y position
+  sec
+  sbc cursor_sprite_y
+  bcs arrow_to_down
+    lsr a
+    lsr a
+    ora #$C0
+  bne arrow_y_done
+  arrow_to_down:
+    adc #2
+    lsr a
+    lsr a
+  arrow_y_done:
+  clc
+  adc cursor_sprite_y
+  sta cursor_sprite_y
+  sta objstrip_y
+
+  lda #$06  ;,; lda #ARROW_TILE
+  sta objstrip_tile
+  lda #2
+  sta objstrip_attr
+  jsr draw16x16
+
+  pla
+  sta objstrip_y
+  pla
+  sta objstrip_x
+  clc
+  lda current_card_id
+  and #%00111000
+  adc current_card_id
+  asl a
+  sta objstrip_tile
+  lda #0
+  sta objstrip_attr
+  jsr draw16x16
+  ;,; ldx oam_used
+  jsr ppu_clear_oam
+
+  ldx current_card_id
+  lda cardPalette_1-28, x
+  sta palette_color_1+0
+  sta palette_color_1+4
+  lda cardPalette_2-28, x
+  sta palette_color_2+0
+  sta palette_color_2+4
+  lda cardPalette_3-28, x
+  sta palette_color_3+0
+  sta palette_color_3+4
+jmp main_loop
 .endproc
 
 .proc editor_edit_card_mode
+  ldy #$00
+  sty PPUMASK
+
+  jsr ppu_wait_vblank
+
 .shuffle
   ldx #>edit_card_text
   lda #<edit_card_text

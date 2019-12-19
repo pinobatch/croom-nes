@@ -35,7 +35,9 @@ DONE
 
 ; drawcards fields
 .globalzp selectedCards, cursor_x, cursor_y, curTurn
-.global boardState
+.globalzp cursor_sprite_x, cursor_sprite_y, oam_used
+.globalzp cardPalette_1, cardPalette_2, cardPalette_3
+.global boardState, draw16x16
 ; drawcards methods
 .global loadPlayScreen
 .global buildScoreUpdate, blitScoreUpdate, gameOverClearRow
