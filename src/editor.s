@@ -8,12 +8,14 @@
   editor_pen_x: .res 1
   editor_pen_y: .res 1
   editor_pen_i: .res 1
-  current_emblem_pixels: .res 16
   palette_bg: .res 1
   palette_color_1: .res 8
   palette_color_2: .res 8
   palette_color_3: .res 8
 .endshuffle
+
+.segment "BSS"
+  current_emblem_pixels: .res 16*4
 
 .segment "CODE"
 .proc start_editor
@@ -191,6 +193,7 @@ cardobj_y = $07
   lda #$30
   sta palette_color_2+2
   sta palette_color_1+6
+  sta palette_color_2+6
   ldx #0
   jsr ppu_clear_oam
 
@@ -211,49 +214,61 @@ main_loop:
   ldx #0
   jsr autorepeat
 
+  ldx current_card_id
   lda new_keys
   and #KEY_UP
   beq :+
     sec
-    lda current_card_id
+    txa
     sbc #6
-    sta current_card_id
+    tax
   :
   lda new_keys
   and #KEY_DOWN
   beq :+
     clc
-    lda current_card_id
+    txa
     adc #6
-    sta current_card_id
+    tax
   :
   lda new_keys
   and #KEY_LEFT
   beq :+
-    dec current_card_id
+    dex
   :
   lda new_keys
   and #KEY_RIGHT|KEY_SELECT
   beq :+
-    inc current_card_id
+    inx
   :
-  lda current_card_id
+  txa
   cmp #64
   bcc :+
-    sec
+    ;,; sec
     sbc #64-28
   :
   cmp #28
   bcs :+
-    clc
+    ;,; clc
     adc #64-28
   :
-  sta current_card_id
+  stx current_card_id
+
+  ;,; ldx current_card_id
+  lda cardPalette_1-28, x
+  sta palette_color_1+0
+  sta palette_color_1+4
+  lda cardPalette_2-28, x
+  sta palette_color_2+0
+  sta palette_color_2+4
+  lda cardPalette_3-28, x
+  sta palette_color_3+0
+  sta palette_color_3+4
 
   lda new_keys
   and #KEY_A|KEY_START
   beq :+
-    jmp editor_edit_card_mode
+    jmp load_card_then_goto_edit_mode
   :
 
   lda new_keys
@@ -403,26 +418,195 @@ main_loop:
   jsr draw16x16
   ;,; ldx oam_used
   jsr ppu_clear_oam
-
-  ldx current_card_id
-  lda cardPalette_1-28, x
-  sta palette_color_1+0
-  sta palette_color_1+4
-  lda cardPalette_2-28, x
-  sta palette_color_2+0
-  sta palette_color_2+4
-  lda cardPalette_3-28, x
-  sta palette_color_3+0
-  sta palette_color_3+4
 jmp main_loop
 .endproc
 
-.proc editor_edit_card_mode
+.proc load_card_then_goto_edit_mode
+card_ppu_pointer = 0
+
   ldy #$00
   sty PPUMASK
 
   jsr ppu_wait_vblank
+  ;,; ldy #$00
 
+  ; load 64 bytes from CHR RAM as indexed by current_card_id
+  ; while still keeping in mind the odd swizzling of tiles
+
+  clc
+  lda current_card_id
+  and #%00111000
+  adc current_card_id
+  asl a
+  sty card_ppu_pointer+1
+  asl
+  rol card_ppu_pointer+1
+  asl
+  rol card_ppu_pointer+1
+  asl
+  rol card_ppu_pointer+1
+  asl
+  rol card_ppu_pointer+1
+  sta card_ppu_pointer+0
+
+tile_loop:
+  lda card_ppu_pointer+1
+  ora #$10
+  sta PPUADDR
+  lda card_ppu_pointer+0
+  sta PPUADDR
+  bit PPUDATA ; dummy read
+
+  ldx #16
+  ;,; ldy #0
+  load_tiles_pixel_loop:
+    lda PPUDATA
+    sta current_emblem_pixels, y
+    iny
+    dex
+  bne load_tiles_pixel_loop
+
+  ; In ppu space when we go from the left to the right quadrant (16 bytes)
+  ; in the editor buffer we are going 32 bytes apart
+  ; that way pixels are drawn in a single 16 pixel column.
+
+  ; PPU space, going from the top to the bottom quadrant (256 bytes)
+  tya
+  and #%00010000
+  beq :+
+    inc card_ppu_pointer+1
+  :
+
+  ; PPU space, going from the left to the right quadrant (16 bytes)
+  cpy #32
+  bne not_going_from_left_to_right
+    lda card_ppu_pointer+0
+    sec
+    sbc #240
+    sta card_ppu_pointer+0
+    bcs :+
+      dec card_ppu_pointer+1
+    :
+  not_going_from_left_to_right:
+
+  cpy #64
+bcc tile_loop
+
+  ; then write all the pixels as tiles 0~3 in the Nametable
+  ; for [left side, right side]
+  ;   for 16 rows
+  ;     set ppuaddr
+  ;     for 8 pixels
+  ;       extract 2 bits from 2 bytes with a stride of 16 bytes
+  ;       write ppudata
+
+pixel_row_ppuaddr_start = 0
+pixel_buffer_lo = 2
+pixel_buffer_hi = 3
+column_count = 4
+  lda #>NTXY(12,5)
+  sta pixel_row_ppuaddr_start+1
+  lda #<NTXY(12,5)
+  sta pixel_row_ppuaddr_start+0
+  ldy #$00
+
+draw_tile_column:
+  lda #$100-16
+  sta column_count
+tile_column_loop:
+  lda pixel_row_ppuaddr_start+1
+  sta PPUADDR
+  lda pixel_row_ppuaddr_start+0
+  sta PPUADDR
+
+  ; draw a 8 pixels row of pixels here
+  lda current_emblem_pixels, y
+  sta pixel_buffer_lo
+  lda current_emblem_pixels+8, y
+  sta pixel_buffer_hi
+  iny
+  ldx #8-1
+  pixel_loop:
+    asl pixel_buffer_hi
+    rol a
+    asl pixel_buffer_lo
+    rol a
+    and #%00000011
+    sta PPUDATA
+    dex
+  bpl pixel_loop
+
+  lda pixel_row_ppuaddr_start+0
+  clc
+  adc #32
+  sta pixel_row_ppuaddr_start+0
+  bcc :+
+    inc pixel_row_ppuaddr_start+1
+  :
+
+  ; advance the current_emblem_pixels pointer
+  ; to not point into the 2nd plane
+  tya
+  bit __byte_0x08+1
+  beq :+
+    clc
+__byte_0x08:
+    adc #8
+    tay
+  :
+
+  inc column_count
+bne tile_column_loop
+
+  ; if at the bottom of the left column
+  ; go to the right column and draw 16 more rows
+  lda pixel_row_ppuaddr_start+0
+  cmp #<NTXY(20,21)
+  bcs pixels_done
+    lda #>NTXY(20,5)
+    sta pixel_row_ppuaddr_start+1
+    lda #<NTXY(20,5)
+    sta pixel_row_ppuaddr_start+0
+    bcc draw_tile_column  ;,; jmp draw_tile_column
+  pixels_done:
+
+  ; draw tile in the small preview area
+  ; (4, 10), $2144
+  ldy #>NTXY(4,10)
+  sty PPUADDR
+  ldy #<NTXY(4,10)
+  sty PPUADDR
+  clc
+  lda current_card_id
+  and #%00111000
+  adc current_card_id
+  asl a
+  sta PPUDATA
+  ;,; clc
+  adc #1
+  sta PPUDATA
+
+  ldy #>NTXY(4,11)
+  sty PPUADDR
+  ldy #<NTXY(4,11)
+  sty PPUADDR
+  ;,; clc
+  adc #16-1
+  sta PPUDATA
+  ;,; clc
+  adc #1
+  sta PPUDATA
+
+jmp editor_edit_card_mode
+.endproc
+
+.proc editor_edit_card_mode
+  jsr ppu_wait_vblank
+  ldy #$00
+  sty PPUMASK
+
+  ; This text uploading can fit in a vblank
+  ; todo: avoid using an entire frame for this first part.
 .shuffle
   ldx #>edit_card_text
   lda #<edit_card_text
@@ -430,7 +614,12 @@ jmp main_loop
   jsr nstripe_append
   jsr popslide_terminate_blit
 
+main_loop:
+  jsr place_editor_objects
+
   jsr ppu_wait_vblank
+  lda #>OAM
+  sta OAM_DMA
   jsr upload_palette
 
   lda #VBLANK_NMI|OBJ_1000|BG_1000
@@ -439,12 +628,71 @@ jmp main_loop
   sec
   jsr ppu_screen_on
 
-jam: jmp jam
+  jsr pently_update
 
-  rts
+  jsr read_pads
+  ldx #0
+  jsr autorepeat
+
+  lda new_keys
+  and #KEY_UP
+  beq :+
+    dec editor_pen_y
+  :
+  lda new_keys
+  and #KEY_DOWN
+  beq :+
+    inc editor_pen_y
+  :
+  lda new_keys
+  and #KEY_LEFT
+  beq :+
+    dec editor_pen_x
+  :
+  lda new_keys
+  and #KEY_RIGHT
+  beq :+
+    inc editor_pen_x
+  :
+  lda editor_pen_x
+  and #$0f
+  sta editor_pen_x
+  lda editor_pen_y
+  and #$0f
+  sta editor_pen_y
+
+  lda new_keys
+  and #KEY_START
+  beq :+
+    jmp editor_select_card_mode
+  :
+
+  lda new_keys
+  and #KEY_SELECT
+  beq :+
+    jmp editor_edit_color_mode
+  :
+
+  ; do the sprite zero hit here, to display the text portion
+  ldy #VBLANK_NMI|OBJ_1000|BG_0000
+  lda #$C0
+  :
+    bit PPUSTATUS
+  bne :-
+  :
+    bit PPUSTATUS
+  beq :-
+  sty PPUCTRL
+
+jmp main_loop
 .endproc
 
 .proc editor_edit_color_mode
+  ldy #$00
+  sty PPUMASK
+
+  jsr ppu_wait_vblank
+
 .shuffle
   ldx #>edit_color_text
   lda #<edit_color_text
@@ -452,8 +700,110 @@ jam: jmp jam
   jsr nstripe_append
   jsr popslide_terminate_blit
 
-  rts
+main_loop:
+  jsr place_editor_objects
+  jsr ppu_wait_vblank
+  lda #>OAM
+  sta OAM_DMA
+  jsr pently_update
+  jsr upload_palette
+
+  lda #VBLANK_NMI|OBJ_1000|BG_1000
+  ldx #0
+  ldy #0
+  sec
+  jsr ppu_screen_on
+
+  jsr read_pads
+  ldx #0
+  jsr autorepeat
+
+  lda new_keys
+  and #KEY_A|KEY_START|KEY_SELECT
+  beq :+
+    jmp editor_edit_card_mode
+  :
+
+  ; do the sprite zero hit here, to display the text portion
+  ldy #VBLANK_NMI|OBJ_1000|BG_0000
+  lda #$C0
+  :
+    bit PPUSTATUS
+  bne :-
+  :
+    bit PPUSTATUS
+  beq :-
+  sty PPUCTRL
+
+jmp main_loop
 .endproc
+
+.proc place_editor_objects
+objstrip_y = $00
+objstrip_tile = $01
+objstrip_attr = $02
+objstrip_x = $03
+objstrip_len = $04
+  ; place sprite zero,
+  lda #$b5
+  sta OAM+0
+  lda #$31
+  sta OAM+1
+  lda #2
+  sta OAM+2
+  lda #$d8
+  sta OAM+3
+  ; the 2 sprites for the color pen,
+
+  lda editor_pen_y
+  asl
+  asl
+  asl
+  clc
+  adc #29-1
+  sta OAM+4
+  clc
+  adc #$8
+  sta OAM+8
+  lda #$4c
+  sta OAM+5
+  lda #$5c
+  sta OAM+9
+  lda #1
+  sta OAM+6
+  sta OAM+10
+  lda editor_pen_x
+  asl
+  asl
+  asl
+  clc
+  adc #100
+  sta OAM+7
+  sta OAM+11
+
+  ldx #12
+  stx oam_used
+
+  ; the 32 sprites for the 4 corners of the pixel edit box,
+  lda #80
+  sta objstrip_x
+  lda #24-1
+  sta objstrip_y
+  lda #$0e
+  sta objstrip_tile
+  lda #2
+  sta objstrip_attr
+  jsr draw16x16
+  ; need a way to flip groups of 4 8x8 objects
+
+
+  ; 8 sprites to cover the color bleed from the palette selection box,
+
+  ldx oam_used
+  jsr ppu_clear_oam
+rts
+.endproc
+
 
 .proc initalize_palette
   lda #$30
@@ -664,10 +1014,10 @@ edit_card_text:
   .byte 18-1, "Select: edit color"
 --edit_card_text_parts--
   .dbyt NTXY(15,25)
-  .byte $40 + 4-1, $03
+  .byte $40 + 4-1, $20
 --edit_card_text_parts--
   .dbyt NTXY(20,27)
-  .byte $40 + 10-1, $03
+  .byte $40 + 10-1, $20
 .endshuffle
   .byte $ff
 
@@ -690,10 +1040,10 @@ edit_color_text:
   .byte 9-1, "B: cancel"
 --edit_color_text_parts--
   .dbyt NTXY(9,25)
-  .byte $40 + 12-1, $03
+  .byte $40 + 12-1, $20
 --edit_color_text_parts--
   .dbyt NTXY(16,27)
-  .byte $40 + 5-1, $03
+  .byte $40 + 5-1, $20
 .endshuffle
   .byte $ff
 

@@ -166,7 +166,7 @@ mode = 6
   jsr ppu_clear_nt
 
   ldy #$10
-  lda #$ff^2
+  lda #2
   sty PPUADDR
   sty PPUADDR
   sta PPUDATA
@@ -174,8 +174,11 @@ mode = 6
   sty PPUADDR
   lda PPUDATA
   lda PPUDATA
-  eor #$ff
   sta chr_ram_detected
+  lda #$ff
+  sty PPUADDR
+  sty PPUADDR
+  sta PPUDATA
 
 .shuffle
   ldx #>title_stripe_1
