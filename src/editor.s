@@ -739,11 +739,6 @@ jmp main_loop
 .endproc
 
 .proc place_editor_objects
-objstrip_y = $00
-objstrip_tile = $01
-objstrip_attr = $02
-objstrip_x = $03
-objstrip_len = $04
   ; place sprite zero,
   lda #$b5
   sta OAM+0
@@ -781,27 +776,99 @@ objstrip_len = $04
   sta OAM+7
   sta OAM+11
 
-  ldx #12
-  stx oam_used
-
   ; the 32 sprites for the 4 corners of the pixel edit box,
-  lda #80
-  sta objstrip_x
-  lda #24-1
-  sta objstrip_y
-  lda #$0e
-  sta objstrip_tile
-  lda #2
-  sta objstrip_attr
-  jsr draw16x16
-  ; need a way to flip groups of 4 8x8 objects
+  ldx #12
+  ldy #4-1
+  :
+    jsr draw_box_corner
+    dey
+  bpl :-
 
+  ldy #8-1
+  bleed_cover_loop:
+    tya
+    and #%00000011
+    asl
+    asl
+    asl
+    clc
+    adc #128-1
+    sta OAM, x
+    inx
+    lda #2
+    sta OAM, x
+    inx
+    ;,; lda #2
+    sta OAM, x
+    inx
+    tya
+    and #%00000100
+    beq :+
+      lda #44
+    :
+    clc
+    adc #14
+    sta OAM,x
+    inx
+    dey
+  bpl bleed_cover_loop
 
   ; 8 sprites to cover the color bleed from the palette selection box,
 
-  ldx oam_used
   jsr ppu_clear_oam
 rts
+draw_box_corner:
+; X = OAM index
+; Y = box index
+current_tile_index = 0
+outer_loop_counter = 1
+  lda #$1c
+  sta current_tile_index
+  lda #$100-4
+  sta outer_loop_counter
+  :
+    lda outer_loop_counter
+    and #%00000010
+    beq not_v_flipped
+    v_flipped:
+      lda box_y2, y
+    jmp v_flipped_end_if
+    not_v_flipped:
+      lda box_y1, y
+    v_flipped_end_if:
+    sta OAM, x
+    inx
+    lda current_tile_index
+    sta OAM, x
+    inx
+    lda box_attr, y
+    sta OAM, x
+    inx
+    lda outer_loop_counter
+    and #%00000001
+    beq not_h_flipped
+    h_flipped:
+      lda box_x2, y
+    jmp h_flipped_end_if
+    not_h_flipped:
+      lda box_x1, y
+    h_flipped_end_if:
+    sta OAM,x
+    inx
+    inc current_tile_index
+    inc outer_loop_counter
+  bne :-
+rts
+box_y1:
+  .byte 24-1, 24-1, 168+8-1, 168+8-1
+box_y2:
+  .byte 24+8-1, 24+8-1, 168-1, 168-1
+box_attr:
+  .byte %00000010, %01000010, %10000010, %11000010
+box_x1:
+  .byte 80, 224+8, 80, 224+8
+box_x2:
+  .byte 80+8, 224, 80+8, 224
 .endproc
 
 
