@@ -8,6 +8,7 @@
   editor_pen_x: .res 1
   editor_pen_y: .res 1
   editor_pen_i: .res 1
+  editor_colors: .res 4
   palette_bg: .res 1
   palette_color_1: .res 8
   palette_color_2: .res 8
@@ -255,15 +256,17 @@ main_loop:
   stx current_card_id
 
   ;,; ldx current_card_id
+  lda #$30
+  sta editor_colors+0
   lda cardPalette_1-28, x
-  sta palette_color_1+0
   sta palette_color_1+4
+  sta editor_colors+1
   lda cardPalette_2-28, x
-  sta palette_color_2+0
   sta palette_color_2+4
+  sta editor_colors+2
   lda cardPalette_3-28, x
-  sta palette_color_3+0
   sta palette_color_3+4
+  sta editor_colors+3
 
   lda new_keys
   and #KEY_A|KEY_START
@@ -597,6 +600,11 @@ bne tile_column_loop
   adc #1
   sta PPUDATA
 
+  lda #$18
+  sta palette_color_2+1
+  lda #$38
+  sta palette_color_1+5
+
 jmp editor_edit_card_mode
 .endproc
 
@@ -604,6 +612,8 @@ jmp editor_edit_card_mode
   jsr ppu_wait_vblank
   ldy #$00
   sty PPUMASK
+
+  jsr display_editor_colors
 
   ; This text uploading can fit in a vblank
   ; todo: avoid using an entire frame for this first part.
@@ -635,6 +645,18 @@ main_loop:
   jsr autorepeat
 
   lda new_keys
+  and #KEY_B
+  beq skip_color_cycle
+    ldy editor_pen_i
+    iny
+    cpy #4
+    bcc :+
+      ldy #0
+    :
+    sty editor_pen_i
+  skip_color_cycle:
+
+  lda new_keys
   and #KEY_UP
   beq :+
     dec editor_pen_y
@@ -664,6 +686,15 @@ main_loop:
   lda new_keys
   and #KEY_START
   beq :+
+    ldx current_card_id
+    ; background color is discarded
+    ; lda editor_colors+0
+    lda editor_colors+1
+    sta cardPalette_1-28, x
+    lda editor_colors+2
+    sta cardPalette_2-28, x
+    lda editor_colors+3
+    sta cardPalette_3-28, x
     jmp editor_select_card_mode
   :
 
@@ -688,6 +719,7 @@ jmp main_loop
 .endproc
 
 .proc editor_edit_color_mode
+old_color = 6
   ldy #$00
   sty PPUMASK
 
@@ -700,13 +732,41 @@ jmp main_loop
   jsr nstripe_append
   jsr popslide_terminate_blit
 
+  ldy editor_pen_i
+  ldx editor_colors, y
+  stx old_color
+
 main_loop:
   jsr place_editor_objects
+  ; erase the pen
+  lda #$ff
+  sta OAM+4
+  sta OAM+8
+
   jsr ppu_wait_vblank
   lda #>OAM
   sta OAM_DMA
-  jsr pently_update
   jsr upload_palette
+
+  lda #>NTXY(8,23)
+  sta PPUADDR
+  lda #<NTXY(8,23)
+  sta PPUADDR
+  ldy editor_pen_i
+  ldx editor_colors, y
+  ; there's got to be a better way then to repeat these two lines to get current color.
+  txa
+  lsr
+  lsr
+  lsr
+  lsr
+  ora #$30
+  sta PPUDATA
+  txa
+  and #$0f
+  tax
+  lda hex_digits, x
+  sta PPUDATA
 
   lda #VBLANK_NMI|OBJ_1000|BG_1000
   ldx #0
@@ -714,9 +774,78 @@ main_loop:
   sec
   jsr ppu_screen_on
 
+  jsr pently_update
+
   jsr read_pads
   ldx #0
   jsr autorepeat
+
+  ldy editor_pen_i
+  ldx editor_colors, y
+
+  lda new_keys
+  and #KEY_B
+  beq :+
+    ldx old_color
+    stx editor_colors, y
+    jmp editor_edit_card_mode
+  :
+
+  lda new_keys
+  and #KEY_UP
+  beq skip_inc_lightness
+    cpx #$30  ; clamp brightness
+    bcs :+
+      ;,; clc
+      txa
+      adc #$10
+      tax
+    :
+  skip_inc_lightness:
+
+  lda new_keys
+  and #KEY_DOWN
+  beq skip_dec_lightness
+    cpx #$10  ; clamp brightness
+    bcc :+
+      ;,; sec
+      txa
+      sbc #$10
+      tax
+    :
+  skip_dec_lightness:
+
+  lda new_keys
+  and #KEY_LEFT
+  beq skip_dec_hue
+    txa
+    and #$0f
+    bne :+
+      txa
+      clc
+      adc #$0d
+      tax
+    :
+    dex
+  skip_dec_hue:
+
+  lda new_keys
+  and #KEY_RIGHT
+  beq skip_inc_hue
+    inx
+    txa
+    and #$0f
+    cmp #$0d
+    bcc :+
+      txa
+      and #$30
+      tax
+    :
+  skip_inc_hue:
+
+  stx editor_colors, y
+
+  jsr display_editor_colors
 
   lda new_keys
   and #KEY_A|KEY_START|KEY_SELECT
@@ -738,6 +867,21 @@ main_loop:
 jmp main_loop
 .endproc
 
+.proc display_editor_colors
+  lda editor_colors+0
+  sta palette_bg
+  sta palette_color_2+2
+  sta palette_color_1+6
+  sta palette_color_2+6
+  lda editor_colors+1
+  sta palette_color_1+0
+  lda editor_colors+2
+  sta palette_color_2+0
+  lda editor_colors+3
+  sta palette_color_3+0
+rts
+.endproc
+
 .proc place_editor_objects
   ; place sprite zero,
   lda #$b5
@@ -748,8 +892,8 @@ jmp main_loop
   sta OAM+2
   lda #$d8
   sta OAM+3
-  ; the 2 sprites for the color pen,
 
+  ; the 2 sprites for the color pen
   lda editor_pen_y
   asl
   asl
@@ -776,14 +920,43 @@ jmp main_loop
   sta OAM+7
   sta OAM+11
 
-  ; the 32 sprites for the 4 corners of the pixel edit box,
-  ldx #12
+  ; pen palette
+  ldy editor_pen_i
+  lda editor_colors, y
+  sta palette_color_2+5
+
+  ; pointer for indicating selected palette
+  ldx #$43  ; the attr if on the left side
+  tya
+  and #%00000001
+  beq :+
+    lda #16
+  :
+  clc
+  adc #132-1
+  sta OAM+12
+  tya
+  and #%00000010
+  beq :+
+    lda #46
+    ldx #$03  ; flip sprite h if on right side
+  :
+  clc
+  adc #13
+  sta OAM+15
+  lda #$1b
+  sta OAM+13
+  stx OAM+14
+
+  ; the 32 sprites for the 4 corners of the pixel edit box
+  ldx #16
   ldy #4-1
   :
     jsr draw_box_corner
     dey
   bpl :-
 
+  ; 8 sprites to cover the color bleed from the palette selection box
   ldy #8-1
   bleed_cover_loop:
     tya
@@ -795,28 +968,31 @@ jmp main_loop
     adc #128-1
     sta OAM, x
     inx
-    lda #2
+    tya
+    and #%00000100
+    beq :+
+      lda #$38
+      .byte $2c
+    :
+    lda #$3d
     sta OAM, x
     inx
-    ;,; lda #2
+    lda #2
     sta OAM, x
     inx
     tya
     and #%00000100
     beq :+
-      lda #44
+      lda #56
+      .byte $2c
     :
-    clc
-    adc #14
+    lda #16
     sta OAM,x
     inx
     dey
   bpl bleed_cover_loop
+jmp ppu_clear_oam
 
-  ; 8 sprites to cover the color bleed from the palette selection box,
-
-  jsr ppu_clear_oam
-rts
 draw_box_corner:
 ; X = OAM index
 ; Y = box index
@@ -1116,22 +1292,24 @@ edit_color_text:
 
 --editor_rodata--
 screen_1_attribute_table_pkb:
-;00000000: aa aa aa aa aa aa aa aa 66 55 aa 00 00 00 00 00  ........fU......
-;00000010: 66 45 aa 00 00 00 00 00 a6 a5 aa 00 00 00 00 00  fE..............
-;00000020: 22 00 aa 00 00 00 00 00 fa fa fa a0 a0 a0 a0 a0  "...............
+;00000000: aa aa aa aa aa aa aa aa 66 55 aa 00 00 00 00 aa  ........fU......
+;00000010: 66 45 aa 00 00 00 00 aa a6 a5 aa 00 00 00 00 aa  fE..............
+;00000020: 22 00 aa 00 00 00 00 aa fa fa fa a0 a0 a0 a0 aa  "...............
 ;00000030: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff  ................
   .dbyt 64
   .byte $101-8, $aa
   .byte -1+3, $66, $55, $aa
-  .byte $101-5, $00
-  .byte -1+3, $66, $45, $aa
-  .byte $101-5, $00
-  .byte -1+3, $a6, $a5, $aa
-  .byte $101-5, $00
-  .byte -1+3, $22, $00, $aa
-  .byte $101-5, $00
+  .byte $101-4, $00
+  .byte -1+4, $aa, $66, $45, $aa
+  .byte $101-4, $00
+  .byte -1+4, $aa, $a6, $a5, $aa
+  .byte $101-4, $00
+  .byte -1+4, $aa, $22, $00, $aa
+  .byte $101-4, $00
+  .byte -1+1, $aa
   .byte $101-3, $fa
-  .byte $101-5, $a0
+  .byte $101-4, $a0
+  .byte -1+1, $aa
   .byte $101-16, $ff
 
 --editor_rodata--
@@ -1156,4 +1334,7 @@ screen_2_attribute_table_pkb:
   .byte -1+2, $55, $99
   .byte $101-6, $ab
   .byte $101-9, $55
+--editor_rodata--
+hex_digits:
+  .byte "0123456789ABCDEF"
 .endshuffle
