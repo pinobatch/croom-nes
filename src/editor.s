@@ -522,7 +522,7 @@ tile_column_loop:
   lda pixel_row_ppuaddr_start+0
   sta PPUADDR
 
-  ; draw a 8 pixels row of pixels here
+  ; draw a 8 pixel row
   lda current_emblem_pixels, y
   sta pixel_buffer_lo
   lda current_emblem_pixels+8, y
@@ -609,6 +609,9 @@ jmp editor_edit_card_mode
 .endproc
 
 .proc editor_edit_card_mode
+pixel_row_ppuaddr_start = 0
+b_button_picks_color = 7
+draw_pixel = 6
   jsr ppu_wait_vblank
   ldy #$00
   sty PPUMASK
@@ -624,6 +627,11 @@ jmp editor_edit_card_mode
   jsr nstripe_append
   jsr popslide_terminate_blit
 
+  lda #1
+  sta b_button_picks_color
+  lda #0
+  sta draw_pixel
+
 main_loop:
   jsr place_editor_objects
 
@@ -631,6 +639,47 @@ main_loop:
   lda #>OAM
   sta OAM_DMA
   jsr upload_palette
+
+  lda draw_pixel
+  beq skip_committing_pixel
+    lda #0
+    sta pixel_row_ppuaddr_start+1
+    lda editor_pen_y
+    ; A = pen_y * 32
+    asl
+    rol pixel_row_ppuaddr_start+1
+    asl
+    rol pixel_row_ppuaddr_start+1
+    asl
+    rol pixel_row_ppuaddr_start+1
+    asl
+    rol pixel_row_ppuaddr_start+1
+    asl
+    rol pixel_row_ppuaddr_start+1
+    clc
+    adc editor_pen_x
+    ; assuming this add never overflows
+    ;bcc :+
+    ;  inc pixel_row_ppuaddr_start+1
+    ;  clc
+    ;:
+    adc #<NTXY(12,5)
+    sta pixel_row_ppuaddr_start+0
+    lda pixel_row_ppuaddr_start+1
+    adc #>NTXY(12,5)
+    ;,; sta pixel_row_ppuaddr_start+1
+    sta PPUADDR
+    lda pixel_row_ppuaddr_start+0
+    sta PPUADDR
+    lda editor_pen_i
+    sta PPUDATA
+
+    ;; oh no, I've also got to do that one crazy transform into the actual emblem tiles!
+    lda #0
+    sta draw_pixel
+  skip_committing_pixel:
+
+
 
   lda #VBLANK_NMI|OBJ_1000|BG_1000
   ldx #0
@@ -645,35 +694,27 @@ main_loop:
   jsr autorepeat
 
   lda new_keys
-  and #KEY_B
-  beq skip_color_cycle
-    ldy editor_pen_i
-    iny
-    cpy #4
-    bcc :+
-      ldy #0
-    :
-    sty editor_pen_i
-  skip_color_cycle:
-
-  lda new_keys
   and #KEY_UP
   beq :+
+    sta b_button_picks_color
     dec editor_pen_y
   :
   lda new_keys
   and #KEY_DOWN
   beq :+
+    sta b_button_picks_color
     inc editor_pen_y
   :
   lda new_keys
   and #KEY_LEFT
   beq :+
+    sta b_button_picks_color
     dec editor_pen_x
   :
   lda new_keys
   and #KEY_RIGHT
   beq :+
+    sta b_button_picks_color
     inc editor_pen_x
   :
   lda editor_pen_x
@@ -682,6 +723,63 @@ main_loop:
   lda editor_pen_y
   and #$0f
   sta editor_pen_y
+
+  lda cur_keys
+  and #KEY_A
+  beq not_drawing_pixel
+    sta draw_pixel
+    jsr get_byte_offset_from_pen_x_y
+    lda current_emblem_pixels, y
+    and and_masks, x
+    sta current_emblem_pixels, y
+    lda current_emblem_pixels+8, y
+    and and_masks, x
+    sta current_emblem_pixels+8, y
+    lda editor_pen_i
+    and #%00000001
+    beq :+
+      lda or_masks, x
+    :
+    ora current_emblem_pixels, y
+    sta current_emblem_pixels, y
+    lda editor_pen_i
+    and #%00000010
+    beq :+
+      lda or_masks, x
+    :
+    ora current_emblem_pixels+8, y
+    sta current_emblem_pixels+8, y
+  not_drawing_pixel:
+
+  lda new_keys
+  and #KEY_B
+  beq skip_color_cycle
+    lda b_button_picks_color
+    beq cycle_color
+    pick_color:
+      lda #0
+      sta editor_pen_i
+      sta b_button_picks_color
+      jsr get_byte_offset_from_pen_x_y
+      lda current_emblem_pixels+8, y
+      and or_masks, x
+      cmp #1  ; CLC if A=0, SEC if A>=1
+      rol editor_pen_i
+      lda current_emblem_pixels, y
+      and or_masks, x
+      cmp #1  ; CLC if A=0, SEC if A>=1
+      rol editor_pen_i
+    jmp change_color_done
+    cycle_color:
+      ldy editor_pen_i
+      iny
+      cpy #4
+      bcc :+
+        ldy #0
+      :
+      sty editor_pen_i
+    change_color_done:
+  skip_color_cycle:
 
   lda new_keys
   and #KEY_START
@@ -716,6 +814,28 @@ main_loop:
   sty PPUCTRL
 
 jmp main_loop
+get_byte_offset_from_pen_x_y:
+temp = 0
+  lda editor_pen_x
+  and #%00001000
+  asl
+  ora editor_pen_y  ; assuming never more then 15
+  ; -aaaabbb -> aaaa0bbb
+  sta temp
+  and #%01111000
+  clc
+  adc temp
+  tay
+  lda editor_pen_x
+  and #%00000111
+  tax
+rts
+and_masks:
+  .byte %01111111,%10111111,%11011111,%11101111
+  .byte %11110111,%11111011,%11111101,%11111110
+or_masks:
+  .byte %10000000,%01000000,%00100000,%00010000
+  .byte %00001000,%00000100,%00000010,%00000001
 .endproc
 
 .proc editor_edit_color_mode
