@@ -642,6 +642,8 @@ main_loop:
 
   lda draw_pixel
   beq skip_committing_pixel
+brk
+brk
     lda #0
     sta pixel_row_ppuaddr_start+1
     lda editor_pen_y
@@ -674,7 +676,28 @@ main_loop:
     lda editor_pen_i
     sta PPUDATA
 
-    ;; oh no, I've also got to do that one crazy transform into the actual emblem tiles!
+    ; oh no, I've also got to do that one crazy transform into the actual emblem tiles!
+    jsr get_byte_offset_from_pen_x_y
+    ; Y was computed from subroutine
+    sty 2  ; sty temp+2
+    lda current_card_id
+    jsr card_id_and_row_offset_to_ppuaddr
+
+    ; I hope I have enough vblank time here
+    sta PPUADDR
+    sty PPUADDR
+    ldy 2  ; ldy temp+2
+    lda current_emblem_pixels, y
+    sta PPUDATA
+    lda 1  ; lda temp+1 ; from jsr card_id_a...
+    sta PPUADDR
+    lda 0  ; lda temp+0
+    clc
+    adc #8
+    sta PPUADDR
+    lda current_emblem_pixels+8, y
+    sta PPUDATA
+
     lda #0
     sta draw_pixel
   skip_committing_pixel:
@@ -985,6 +1008,47 @@ main_loop:
   sty PPUCTRL
 
 jmp main_loop
+.endproc
+
+;;
+; input A: current_card_id
+; input Y: current_emblem_pixels offset
+; output A: high byte of ppuaddr
+; output Y: low byte of ppuaddr
+.proc card_id_and_row_offset_to_ppuaddr
+  ; input            result ppuaddr
+  ; Y: --cbaaaa  ->  -------b,---caaaa
+  ; A: --eeeddd  ->  --01eee-,ddd-----
+temp = 0
+  ldx #0
+  stx temp+0
+  and #%00111111  ; A = 00eeeddd
+  ora #%01000000  ; A = 01eeeddd
+  lsr a
+  ror temp+0
+  lsr a
+  ror temp+0
+  sta temp+1      ; temp = 0001eeed,dd-----
+
+  tya
+  and #%00101111
+  ora temp+0
+  sta temp+0
+  and #%00001111
+  clc
+  adc temp+0      ; A = ddcaaaa-
+  lsr temp+1
+  ror a
+  sta temp+0      ; temp = 00001eee,dddcaaaa
+
+  tya
+  and #%00010000  ; A = 000b0000
+  cmp #1          ; >1 to carry bit
+  rol temp+1      ; temp = 0001eeeb,dddcaaaa
+
+  ldy temp+0
+  lda temp+1
+rts
 .endproc
 
 .proc display_editor_colors
