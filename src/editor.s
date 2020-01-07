@@ -8,6 +8,7 @@
   editor_pen_x: .res 1
   editor_pen_y: .res 1
   editor_pen_i: .res 1
+  editor_pen_moved_flag: .res 1
   editor_colors: .res 4
   palette_bg: .res 1
   palette_color_1: .res 8
@@ -185,9 +186,6 @@ objstrip_x = $03
 objstrip_len = $04
 cardobj_x = $06
 cardobj_y = $07
-  ldy #$00
-  sty PPUMASK
-
   jsr initalize_palette
   lda #$3c
   sta palette_color_2+1
@@ -195,67 +193,9 @@ cardobj_y = $07
   sta palette_color_2+2
   sta palette_color_1+6
   sta palette_color_2+6
-  ldx #0
-  jsr ppu_clear_oam
 
 main_loop:
-  jsr ppu_wait_vblank
-  lda #>OAM
-  sta OAM_DMA
-  jsr pently_update
-  jsr upload_palette
-
-  lda #VBLANK_NMI|OBJ_1000|BG_1000|NT_2800
-  ldx #256-8
-  ldy #0
-  sec
-  jsr ppu_screen_on
-
-  jsr read_pads
-  ldx #0
-  jsr autorepeat
-
   ldx current_card_id
-  lda new_keys
-  and #KEY_UP
-  beq :+
-    sec
-    txa
-    sbc #6
-    tax
-  :
-  lda new_keys
-  and #KEY_DOWN
-  beq :+
-    clc
-    txa
-    adc #6
-    tax
-  :
-  lda new_keys
-  and #KEY_LEFT
-  beq :+
-    dex
-  :
-  lda new_keys
-  and #KEY_RIGHT|KEY_SELECT
-  beq :+
-    inx
-  :
-  txa
-  cmp #64
-  bcc :+
-    ;,; sec
-    sbc #64-28
-  :
-  cmp #28
-  bcs :+
-    ;,; clc
-    adc #64-28
-  :
-  stx current_card_id
-
-  ;,; ldx current_card_id
   lda #$30
   sta editor_colors+0
   lda cardPalette_1-28, x
@@ -267,18 +207,6 @@ main_loop:
   lda cardPalette_3-28, x
   sta palette_color_3+4
   sta editor_colors+3
-
-  lda new_keys
-  and #KEY_A|KEY_START
-  beq :+
-    jmp load_card_then_goto_edit_mode
-  :
-
-  lda new_keys
-  and #KEY_B
-  beq :+
-    rts
-  :
 
   ; figure out arrow position from selected card id.
   ; It'll be just "simply" be a div 6 and a mod 6, right?
@@ -421,6 +349,88 @@ main_loop:
   jsr draw16x16
   ;,; ldx oam_used
   jsr ppu_clear_oam
+
+  jsr ppu_wait_vblank
+  lda #>OAM
+  sta OAM_DMA
+  jsr pently_update
+  jsr upload_palette
+
+  lda #VBLANK_NMI|OBJ_1000|BG_1000|NT_2800
+  ldx #256-8
+  ldy #0
+  sec
+  jsr ppu_screen_on
+
+  jsr read_pads
+  ldx #0
+  jsr autorepeat
+  ; Disable DAS for non movement by masking out it's button bits
+  lda das_keys
+  and #$ff^(KEY_A|KEY_B|KEY_START)
+  sta das_keys
+
+  ldx current_card_id
+  lda new_keys
+  and #KEY_UP
+  beq :+
+    sec
+    txa
+    sbc #6
+    tax
+  :
+  lda new_keys
+  and #KEY_DOWN
+  beq :+
+    clc
+    txa
+    adc #6
+    tax
+  :
+  lda new_keys
+  and #KEY_LEFT
+  beq :+
+    dex
+  :
+  lda new_keys
+  and #KEY_RIGHT|KEY_SELECT
+  beq :+
+    inx
+  :
+  txa
+  cmp #64
+  bcc :+
+    ;,; sec
+    sbc #64-28
+  :
+  cmp #28
+  bcs :+
+    ;,; clc
+    adc #64-28
+  :
+  ;,; tax
+  sta current_card_id
+
+  lda new_keys
+  and #KEY_UP|KEY_DOWN|KEY_LEFT|KEY_RIGHT|KEY_SELECT
+  beq :+
+    lda #1
+    jsr pently_start_sound
+  :
+
+  lda new_keys
+  and #KEY_A|KEY_START
+  beq :+
+    lda #4
+    jsr pently_start_sound
+    jmp load_card_then_goto_edit_mode
+  :
+
+  lda new_keys
+  and #KEY_B
+  beq :+
+    rts
+  :
 jmp main_loop
 .endproc
 
@@ -429,9 +439,7 @@ card_ppu_pointer = 0
 
   ldy #$00
   sty PPUMASK
-
   jsr ppu_wait_vblank
-  ;,; ldy #$00
 
   ; load 64 bytes from CHR RAM as indexed by current_card_id
   ; while still keeping in mind the odd swizzling of tiles
@@ -610,25 +618,17 @@ jmp editor_edit_card_mode
 
 .proc editor_edit_card_mode
 pixel_row_ppuaddr_start = 0
-b_button_picks_color = 7
 draw_pixel = 6
-  jsr ppu_wait_vblank
-  ldy #$00
-  sty PPUMASK
-
   jsr display_editor_colors
 
-  ; This text uploading can fit in a vblank
-  ; todo: avoid using an entire frame for this first part.
 .shuffle
   ldx #>edit_card_text
   lda #<edit_card_text
 .endshuffle
   jsr nstripe_append
-  jsr popslide_terminate_blit
 
   lda #1
-  sta b_button_picks_color
+  sta editor_pen_moved_flag
   lda #0
   sta draw_pixel
 
@@ -639,11 +639,11 @@ main_loop:
   lda #>OAM
   sta OAM_DMA
   jsr upload_palette
+  ; This text uploading can fit in a vblank
+  jsr popslide_terminate_blit
 
   lda draw_pixel
   beq skip_committing_pixel
-brk
-brk
     lda #0
     sta pixel_row_ppuaddr_start+1
     lda editor_pen_y
@@ -715,29 +715,44 @@ brk
   jsr read_pads
   ldx #0
   jsr autorepeat
+  lda das_keys
+  and #$ff^(KEY_A|KEY_B|KEY_START|KEY_SELECT)
+  sta das_keys
+
+  ; Yes waste all that time to do the sprite zero hit here
+  ; so that the text will always display between transitions
+  ldy #VBLANK_NMI|OBJ_1000|BG_0000
+  lda #$C0
+  :
+    bit PPUSTATUS
+  bne :-
+  :
+    bit PPUSTATUS
+  beq :-
+  sty PPUCTRL
 
   lda new_keys
   and #KEY_UP
   beq :+
-    sta b_button_picks_color
+    sta editor_pen_moved_flag
     dec editor_pen_y
   :
   lda new_keys
   and #KEY_DOWN
   beq :+
-    sta b_button_picks_color
+    sta editor_pen_moved_flag
     inc editor_pen_y
   :
   lda new_keys
   and #KEY_LEFT
   beq :+
-    sta b_button_picks_color
+    sta editor_pen_moved_flag
     dec editor_pen_x
   :
   lda new_keys
   and #KEY_RIGHT
   beq :+
-    sta b_button_picks_color
+    sta editor_pen_moved_flag
     inc editor_pen_x
   :
   lda editor_pen_x
@@ -772,17 +787,24 @@ brk
     :
     ora current_emblem_pixels+8, y
     sta current_emblem_pixels+8, y
+    lda editor_pen_moved_flag
+    beq :+
+      lda #3
+      jsr pently_start_sound
+      lda #0
+      sta editor_pen_moved_flag
+    :
   not_drawing_pixel:
 
   lda new_keys
   and #KEY_B
   beq skip_color_cycle
-    lda b_button_picks_color
+    lda editor_pen_moved_flag
     beq cycle_color
     pick_color:
       lda #0
       sta editor_pen_i
-      sta b_button_picks_color
+      sta editor_pen_moved_flag
       jsr get_byte_offset_from_pen_x_y
       lda current_emblem_pixels+8, y
       and or_masks, x
@@ -802,6 +824,8 @@ brk
       :
       sty editor_pen_i
     change_color_done:
+    lda #6
+    jsr pently_start_sound
   skip_color_cycle:
 
   lda new_keys
@@ -816,25 +840,18 @@ brk
     sta cardPalette_2-28, x
     lda editor_colors+3
     sta cardPalette_3-28, x
+    lda #5
+    jsr pently_start_sound
     jmp editor_select_card_mode
   :
 
   lda new_keys
   and #KEY_SELECT
   beq :+
+    lda #0
+    jsr pently_start_sound
     jmp editor_edit_color_mode
   :
-
-  ; do the sprite zero hit here, to display the text portion
-  ldy #VBLANK_NMI|OBJ_1000|BG_0000
-  lda #$C0
-  :
-    bit PPUSTATUS
-  bne :-
-  :
-    bit PPUSTATUS
-  beq :-
-  sty PPUCTRL
 
 jmp main_loop
 get_byte_offset_from_pen_x_y:
@@ -863,17 +880,11 @@ or_masks:
 
 .proc editor_edit_color_mode
 old_color = 6
-  ldy #$00
-  sty PPUMASK
-
-  jsr ppu_wait_vblank
-
 .shuffle
   ldx #>edit_color_text
   lda #<edit_color_text
 .endshuffle
   jsr nstripe_append
-  jsr popslide_terminate_blit
 
   ldy editor_pen_i
   ldx editor_colors, y
@@ -890,6 +901,7 @@ main_loop:
   lda #>OAM
   sta OAM_DMA
   jsr upload_palette
+  jsr popslide_terminate_blit
 
   lda #>NTXY(8,23)
   sta PPUADDR
@@ -922,6 +934,19 @@ main_loop:
   jsr read_pads
   ldx #0
   jsr autorepeat
+  lda das_keys
+  and #$ff^(KEY_A|KEY_B|KEY_START|KEY_SELECT)
+  sta das_keys
+
+  ldy #VBLANK_NMI|OBJ_1000|BG_0000
+  lda #$C0
+  :
+    bit PPUSTATUS
+  bne :-
+  :
+    bit PPUSTATUS
+  beq :-
+  sty PPUCTRL
 
   ldy editor_pen_i
   ldx editor_colors, y
@@ -931,6 +956,8 @@ main_loop:
   beq :+
     ldx old_color
     stx editor_colors, y
+    lda #2
+    jsr pently_start_sound
     jmp editor_edit_card_mode
   :
 
@@ -988,25 +1015,22 @@ main_loop:
 
   stx editor_colors, y
 
+  lda new_keys
+  and #KEY_UP|KEY_DOWN|KEY_LEFT|KEY_RIGHT
+  beq skip_play_change_sound
+    lda #1
+    jsr pently_start_sound
+  skip_play_change_sound:
+
   jsr display_editor_colors
 
   lda new_keys
   and #KEY_A|KEY_START|KEY_SELECT
   beq :+
+    lda #4
+    jsr pently_start_sound
     jmp editor_edit_card_mode
   :
-
-  ; do the sprite zero hit here, to display the text portion
-  ldy #VBLANK_NMI|OBJ_1000|BG_0000
-  lda #$C0
-  :
-    bit PPUSTATUS
-  bne :-
-  :
-    bit PPUSTATUS
-  beq :-
-  sty PPUCTRL
-
 jmp main_loop
 .endproc
 
@@ -1176,6 +1200,7 @@ rts
     dey
   bpl bleed_cover_loop
 jmp ppu_clear_oam
+
 
 draw_box_corner:
 ; X = OAM index
