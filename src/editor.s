@@ -9,6 +9,7 @@
   editor_pen_y: .res 1
   editor_pen_i: .res 1
   editor_pen_moved_flag: .res 1
+  editor_color_edit_old_color: .res 1
   editor_colors: .res 4
   palette_bg: .res 1
   palette_color_1: .res 8
@@ -20,6 +21,7 @@
   current_emblem_pixels: .res 16*4
 
 .segment "CODE"
+.shuffle --procs--
 .proc start_editor
 paint_nametables:
 ppu_addr_offset = 6
@@ -177,7 +179,7 @@ draw_cards_loop:
   jmp editor_select_card_mode
 .endproc
 
-
+--procs--
 .proc editor_select_card_mode
 objstrip_y = $00
 objstrip_tile = $01
@@ -350,25 +352,9 @@ main_loop:
   ;,; ldx oam_used
   jsr ppu_clear_oam
 
-  jsr ppu_wait_vblank
-  lda #>OAM
-  sta OAM_DMA
-  jsr pently_update
-  jsr upload_palette
-
-  lda #VBLANK_NMI|OBJ_1000|BG_1000|NT_2800
-  ldx #256-8
-  ldy #0
-  sec
-  jsr ppu_screen_on
-
-  jsr read_pads
-  ldx #0
-  jsr autorepeat
-  ; Disable DAS for non movement by masking out it's button bits
-  lda das_keys
-  and #$ff^(KEY_A|KEY_B|KEY_START)
-  sta das_keys
+  lda #$ff^(KEY_A|KEY_B|KEY_START)
+  ldy #%10000000
+  jsr editor_vblank_common
 
   ldx current_card_id
   lda new_keys
@@ -434,6 +420,7 @@ main_loop:
 jmp main_loop
 .endproc
 
+--procs--
 .proc load_card_then_goto_edit_mode
 card_ppu_pointer = 0
 
@@ -616,9 +603,9 @@ bne tile_column_loop
 jmp editor_edit_card_mode
 .endproc
 
+--procs--
 .proc editor_edit_card_mode
 pixel_row_ppuaddr_start = 0
-draw_pixel = 6
   jsr display_editor_colors
 
 .shuffle
@@ -629,107 +616,13 @@ draw_pixel = 6
 
   lda #1
   sta editor_pen_moved_flag
-  lda #0
-  sta draw_pixel
 
 main_loop:
   jsr place_editor_objects
 
-  jsr ppu_wait_vblank
-  lda #>OAM
-  sta OAM_DMA
-  jsr upload_palette
-  ; This text uploading can fit in a vblank
-  jsr popslide_terminate_blit
-
-  lda draw_pixel
-  beq skip_committing_pixel
-    lda #0
-    sta pixel_row_ppuaddr_start+1
-    lda editor_pen_y
-    ; A = pen_y * 32
-    asl
-    rol pixel_row_ppuaddr_start+1
-    asl
-    rol pixel_row_ppuaddr_start+1
-    asl
-    rol pixel_row_ppuaddr_start+1
-    asl
-    rol pixel_row_ppuaddr_start+1
-    asl
-    rol pixel_row_ppuaddr_start+1
-    clc
-    adc editor_pen_x
-    ; assuming this add never overflows
-    ;bcc :+
-    ;  inc pixel_row_ppuaddr_start+1
-    ;  clc
-    ;:
-    adc #<NTXY(12,5)
-    sta pixel_row_ppuaddr_start+0
-    lda pixel_row_ppuaddr_start+1
-    adc #>NTXY(12,5)
-    ;,; sta pixel_row_ppuaddr_start+1
-    sta PPUADDR
-    lda pixel_row_ppuaddr_start+0
-    sta PPUADDR
-    lda editor_pen_i
-    sta PPUDATA
-
-    ; oh no, I've also got to do that one crazy transform into the actual emblem tiles!
-    jsr get_byte_offset_from_pen_x_y
-    ; Y was computed from subroutine
-    sty 2  ; sty temp+2
-    lda current_card_id
-    jsr card_id_and_row_offset_to_ppuaddr
-
-    ; I hope I have enough vblank time here
-    sta PPUADDR
-    sty PPUADDR
-    ldy 2  ; ldy temp+2
-    lda current_emblem_pixels, y
-    sta PPUDATA
-    lda 1  ; lda temp+1 ; from jsr card_id_a...
-    sta PPUADDR
-    lda 0  ; lda temp+0
-    clc
-    adc #8
-    sta PPUADDR
-    lda current_emblem_pixels+8, y
-    sta PPUDATA
-
-    lda #0
-    sta draw_pixel
-  skip_committing_pixel:
-
-
-
-  lda #VBLANK_NMI|OBJ_1000|BG_1000
-  ldx #0
-  ldy #0
-  sec
-  jsr ppu_screen_on
-
-  jsr pently_update
-
-  jsr read_pads
-  ldx #0
-  jsr autorepeat
-  lda das_keys
-  and #$ff^(KEY_A|KEY_B|KEY_START|KEY_SELECT)
-  sta das_keys
-
-  ; Yes waste all that time to do the sprite zero hit here
-  ; so that the text will always display between transitions
-  ldy #VBLANK_NMI|OBJ_1000|BG_0000
-  lda #$C0
-  :
-    bit PPUSTATUS
-  bne :-
-  :
-    bit PPUSTATUS
-  beq :-
-  sty PPUCTRL
+  lda #$ff^(KEY_A|KEY_B|KEY_START|KEY_SELECT)
+  ldy #%01000000
+  jsr editor_vblank_common
 
   lda new_keys
   and #KEY_UP
@@ -764,8 +657,9 @@ main_loop:
 
   lda cur_keys
   and #KEY_A
-  beq not_drawing_pixel
-    sta draw_pixel
+  bne :+
+    jmp not_drawing_pixel
+  :
     jsr get_byte_offset_from_pen_x_y
     lda current_emblem_pixels, y
     and and_masks, x
@@ -787,6 +681,58 @@ main_loop:
     :
     ora current_emblem_pixels+8, y
     sta current_emblem_pixels+8, y
+
+    ; queue up some popslide vblank draw commands to draw a pixel
+    ; first the pixel to the nametable
+    ; string.addr = (pen_y + 5) * 32 + (pen_x + 12) + $2000
+    lda #(>$2000)/32
+    sta 1  ;,; sta temp+1
+    lda editor_pen_y
+    clc
+    adc #5
+    asl
+    rol 1
+    asl
+    rol 1
+    asl
+    rol 1
+    asl
+    rol 1
+    asl
+    rol 1
+    ;,; clc   ; cleared due to the "lda #1 sta temp"
+    adc editor_pen_x
+    ;,; clc   ; cleared due to the 5 "asl"s
+    adc #12
+    sta 0
+    ldx #0  ; ldx #temp+0
+    lda editor_pen_i
+    jsr write_single_byte_to_popslide
+
+    ; next are the 2 tile slivers
+    ; oh no, that means I've got to do that one crazy transform into the actual emblem tiles!
+    jsr get_byte_offset_from_pen_x_y
+    ; Y computed from subroutine
+    sty 2  ; sty temp+2
+    lda current_card_id
+    jsr card_id_and_row_offset_to_ppuaddr
+    ; results in temp+0, temp+1
+
+    ldy 2   ; ldy temp+2
+    lda current_emblem_pixels, y
+    ldx #0  ; ldx #temp+0
+    jsr write_single_byte_to_popslide
+
+    lda 0
+    clc
+    adc #8
+    sta 0
+
+    ldy 2   ; ldy temp+2
+    lda current_emblem_pixels+8, y
+    ldx #0  ; ldx #temp+0
+    jsr write_single_byte_to_popslide
+
     lda editor_pen_moved_flag
     beq :+
       lda #3
@@ -852,9 +798,13 @@ main_loop:
     jsr pently_start_sound
     jmp editor_edit_color_mode
   :
-
 jmp main_loop
+
 get_byte_offset_from_pen_x_y:
+  lda editor_pen_x
+  and #%00000111
+  tax
+get_byte_offset_from_pen_x_y_offset_only:
 temp = 0
   lda editor_pen_x
   and #%00001000
@@ -866,9 +816,6 @@ temp = 0
   clc
   adc temp
   tay
-  lda editor_pen_x
-  and #%00000111
-  tax
 rts
 and_masks:
   .byte %01111111,%10111111,%11011111,%11101111
@@ -878,8 +825,8 @@ or_masks:
   .byte %00001000,%00000100,%00000010,%00000001
 .endproc
 
+--procs--
 .proc editor_edit_color_mode
-old_color = 6
 .shuffle
   ldx #>edit_color_text
   lda #<edit_color_text
@@ -888,7 +835,7 @@ old_color = 6
 
   ldy editor_pen_i
   ldx editor_colors, y
-  stx old_color
+  stx editor_color_edit_old_color
 
 main_loop:
   jsr place_editor_objects
@@ -897,56 +844,39 @@ main_loop:
   sta OAM+4
   sta OAM+8
 
-  jsr ppu_wait_vblank
-  lda #>OAM
-  sta OAM_DMA
-  jsr upload_palette
-  jsr popslide_terminate_blit
-
+  ldy popslide_used
   lda #>NTXY(8,23)
-  sta PPUADDR
+  sta popslide_buf, y
+  iny
   lda #<NTXY(8,23)
-  sta PPUADDR
-  ldy editor_pen_i
-  ldx editor_colors, y
-  ; there's got to be a better way then to repeat these two lines to get current color.
-  txa
+  sta popslide_buf, y
+  iny
+  lda #2-1
+  sta popslide_buf, y
+  iny
+  ldx editor_pen_i
+  lda editor_colors, x
   lsr
   lsr
   lsr
   lsr
-  ora #$30
-  sta PPUDATA
-  txa
+  tax
+  lda hex_digits, x
+  sta popslide_buf, y
+  iny
+  ldx editor_pen_i
+  lda editor_colors, x
+  ; there's got to be a better way then to repeat these lines to get the current color.
   and #$0f
   tax
   lda hex_digits, x
-  sta PPUDATA
+  sta popslide_buf, y
+  iny
+  sty popslide_used
 
-  lda #VBLANK_NMI|OBJ_1000|BG_1000
-  ldx #0
-  ldy #0
-  sec
-  jsr ppu_screen_on
-
-  jsr pently_update
-
-  jsr read_pads
-  ldx #0
-  jsr autorepeat
-  lda das_keys
-  and #$ff^(KEY_A|KEY_B|KEY_START|KEY_SELECT)
-  sta das_keys
-
-  ldy #VBLANK_NMI|OBJ_1000|BG_0000
-  lda #$C0
-  :
-    bit PPUSTATUS
-  bne :-
-  :
-    bit PPUSTATUS
-  beq :-
-  sty PPUCTRL
+  lda #$ff^(KEY_A|KEY_B|KEY_START|KEY_SELECT)
+  ldy #%01000000
+  jsr editor_vblank_common
 
   ldy editor_pen_i
   ldx editor_colors, y
@@ -954,7 +884,7 @@ main_loop:
   lda new_keys
   and #KEY_B
   beq :+
-    ldx old_color
+    ldx editor_color_edit_old_color
     stx editor_colors, y
     lda #2
     jsr pently_start_sound
@@ -1034,6 +964,7 @@ main_loop:
 jmp main_loop
 .endproc
 
+--procs--
 ;;
 ; input A: current_card_id
 ; input Y: current_emblem_pixels offset
@@ -1075,6 +1006,7 @@ temp = 0
 rts
 .endproc
 
+--procs--
 .proc display_editor_colors
   lda editor_colors+0
   sta palette_bg
@@ -1090,6 +1022,7 @@ rts
 rts
 .endproc
 
+--procs--
 .proc place_editor_objects
   ; place sprite zero,
   lda #$b5
@@ -1256,7 +1189,7 @@ box_x2:
   .byte 80+8, 224, 80+8, 224
 .endproc
 
-
+--procs--
 .proc initalize_palette
   lda #$30
   sta palette_bg
@@ -1273,6 +1206,7 @@ box_x2:
   rts
 .endproc
 
+--procs--
 .proc upload_palette
   lda #>$3fe0
   sta PPUADDR
@@ -1293,6 +1227,104 @@ box_x2:
   bcc upload_loop
   rts
 .endproc
+
+--procs--
+;;
+; A = data byte
+; zp,X = address word
+.proc write_single_byte_to_popslide
+  pha
+  ldy popslide_used
+  lda 1,x
+  sta popslide_buf, y
+  iny
+  lda 0,x
+  sta popslide_buf, y
+  iny
+  lda #0
+  sta popslide_buf, y
+  iny
+  pla
+  sta popslide_buf, y
+  iny
+  sty popslide_used
+rts
+.endproc
+
+--procs--
+;;
+; A = DAS keys to filter
+; Y = flags,
+;   bit7: scroll to second screen
+;   bit6: Do sprite 0 hit for text area
+.proc editor_vblank_common
+DAS_filter = 6
+screen_mode_flags = 7
+  sta DAS_filter
+  sty screen_mode_flags
+  jsr ppu_wait_vblank
+  lda #>OAM
+  sta OAM_DMA
+
+  lda #>$3fe0
+  sta PPUADDR
+  lda #<$3fe0
+  sta PPUADDR
+  ldx #0
+  upload_loop:
+    lda palette_bg
+    sta PPUDATA
+    lda palette_color_1, x
+    sta PPUDATA
+    lda palette_color_2, x
+    sta PPUDATA
+    lda palette_color_3, x
+    sta PPUDATA
+    inx
+    cpx #8
+  bcc upload_loop
+
+  ; Text uploading can fit in a vblank
+  jsr popslide_terminate_blit
+
+  lda #VBLANK_NMI|OBJ_1000|BG_1000|NT_2000
+  ldx #0
+  bit screen_mode_flags
+  bpl :+
+    lda #VBLANK_NMI|OBJ_1000|BG_1000|NT_2800
+    ldx #256-8
+  :
+  ldy #0
+  sec
+  jsr ppu_screen_on
+
+  jsr pently_update
+
+  jsr read_pads
+  ldx #0
+  jsr autorepeat
+  ; Disable DAS for non movement by masking out it's button bits
+  lda das_keys
+  and DAS_filter
+  sta das_keys
+
+  ; Yes waste all that time to do the sprite zero hit here
+  ; so that the text will always display between transitions
+  bit screen_mode_flags
+  bvc return
+  ldy #VBLANK_NMI|OBJ_1000|BG_0000
+  lda #$C0
+  :
+    bit PPUSTATUS
+  bne :-
+  :
+    bit PPUSTATUS
+  beq :-
+  sty PPUCTRL
+return:
+rts
+.endproc
+.endshuffle
 
 .segment "RODATA"
 .shuffle --editor_rodata--
