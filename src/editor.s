@@ -614,7 +614,7 @@ pixel_row_ppuaddr_start = 0
 .endshuffle
   jsr nstripe_append
 
-  lda #1
+  lda #0
   sta editor_pen_moved_flag
 
 main_loop:
@@ -655,31 +655,35 @@ main_loop:
   and #$0f
   sta editor_pen_y
 
-  lda cur_keys
-  and #KEY_A
-  bne :+
-    jmp not_drawing_pixel
+  lda editor_pen_moved_flag
+  beq :+
+    lda cur_keys
+    and #KEY_A
+    ora new_keys
+    sta new_keys
   :
+
+  lda new_keys
+  and #KEY_A
+  beq not_drawing_pixel
     jsr get_byte_offset_from_pen_x_y
+    lda editor_pen_i
+    sta 0  ; sta temp+0
+
     lda current_emblem_pixels, y
     and and_masks, x
+    ror 0
+    bcc :+
+      ora or_masks, x
+    :
     sta current_emblem_pixels, y
+
     lda current_emblem_pixels+8, y
     and and_masks, x
-    sta current_emblem_pixels+8, y
-    lda editor_pen_i
-    and #%00000001
-    beq :+
-      lda or_masks, x
+    ror 0
+    bcc :+
+      ora or_masks, x
     :
-    ora current_emblem_pixels, y
-    sta current_emblem_pixels, y
-    lda editor_pen_i
-    and #%00000010
-    beq :+
-      lda or_masks, x
-    :
-    ora current_emblem_pixels+8, y
     sta current_emblem_pixels+8, y
 
     ; queue up some popslide vblank draw commands to draw a pixel
@@ -730,16 +734,13 @@ main_loop:
 
     ldy 2   ; ldy temp+2
     lda current_emblem_pixels+8, y
-    ldx #0  ; ldx #temp+0
+    ;,; ldx #0  ; ldx #temp+0
     jsr write_single_byte_to_popslide
+    ;,;ldx #0
+    stx editor_pen_moved_flag
 
-    lda editor_pen_moved_flag
-    beq :+
-      lda #3
-      jsr pently_start_sound
-      lda #0
-      sta editor_pen_moved_flag
-    :
+    lda #3
+    jsr pently_start_sound
   not_drawing_pixel:
 
   lda new_keys
@@ -762,13 +763,10 @@ main_loop:
       rol editor_pen_i
     jmp change_color_done
     cycle_color:
-      ldy editor_pen_i
-      iny
-      cpy #4
-      bcc :+
-        ldy #0
-      :
-      sty editor_pen_i
+      inc editor_pen_i
+      lda editor_pen_i
+      and #%00000011
+      sta editor_pen_i
     change_color_done:
     lda #6
     jsr pently_start_sound
@@ -894,6 +892,11 @@ main_loop:
   lda new_keys
   and #KEY_UP
   beq skip_inc_lightness
+    cpx #$0f
+    bne :+
+      ldx #$00
+      beq :++
+    :
     cpx #$30  ; clamp brightness
     bcs :+
       ;,; clc
@@ -907,7 +910,10 @@ main_loop:
   and #KEY_DOWN
   beq skip_dec_lightness
     cpx #$10  ; clamp brightness
-    bcc :+
+    bcs :+
+      ldx #$0f
+      bcc :++
+    :
       ;,; sec
       txa
       sbc #$10
@@ -915,33 +921,36 @@ main_loop:
     :
   skip_dec_lightness:
 
-  lda new_keys
-  and #KEY_LEFT
-  beq skip_dec_hue
-    txa
-    and #$0f
-    bne :+
+  cpx #$0f
+  beq skip_hue_changes
+    lda new_keys
+    and #KEY_LEFT
+    beq skip_dec_hue
       txa
-      clc
-      adc #$0d
-      tax
-    :
-    dex
-  skip_dec_hue:
+      and #$0f
+      bne :+
+        txa
+        clc
+        adc #$0d
+        tax
+      :
+      dex
+    skip_dec_hue:
 
-  lda new_keys
-  and #KEY_RIGHT
-  beq skip_inc_hue
-    inx
-    txa
-    and #$0f
-    cmp #$0d
-    bcc :+
+    lda new_keys
+    and #KEY_RIGHT
+    beq skip_inc_hue
+      inx
       txa
-      and #$30
-      tax
-    :
-  skip_inc_hue:
+      and #$0f
+      cmp #$0d
+      bcc :+
+        txa
+        and #$30
+        tax
+      :
+    skip_inc_hue:
+  skip_hue_changes:
 
   stx editor_colors, y
 
@@ -1019,6 +1028,19 @@ rts
   sta palette_color_2+0
   lda editor_colors+3
   sta palette_color_3+0
+
+  ldy #$0f
+  lda palette_bg
+  and #$30
+  bne :+
+    ldy #$30
+  :
+  sty palette_color_3+1
+  sty palette_color_3+2
+  sty palette_color_3+3
+  sty palette_color_3+5
+  sty palette_color_3+6
+  sty palette_color_3+7
 rts
 .endproc
 
