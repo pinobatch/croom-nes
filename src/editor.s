@@ -9,12 +9,7 @@
   editor_pen_y: .res 1
   editor_pen_i: .res 1
   editor_pen_moved_flag: .res 1
-  editor_color_edit_old_color: .res 1
-  editor_colors: .res 4
-  palette_bg: .res 1
-  palette_color_1: .res 8
-  palette_color_2: .res 8
-  palette_color_3: .res 8
+  screen_palette: .res 32
 .endshuffle
 
 .segment "BSS"
@@ -188,27 +183,42 @@ objstrip_x = $03
 objstrip_len = $04
 cardobj_x = $06
 cardobj_y = $07
-  jsr initalize_palette
-  lda #$3c
-  sta palette_color_2+1
+
+initalize_palette:
+  ldx #32-1
+  init_loop:
+    lda #$0f
+    sta screen_palette, x
+    dex
+    lda #$00
+    sta screen_palette, x
+    dex
+    lda #$10
+    sta screen_palette, x
+    dex
+    lda #$30
+    sta screen_palette, x
+    dex
+  bpl init_loop
+
   lda #$30
-  sta palette_color_2+2
-  sta palette_color_1+6
-  sta palette_color_2+6
+  sta screen_palette+0
+  lda #$3c
+  sta screen_palette+1*4+2
+  lda #$38
+  sta screen_palette+5*4+1
 
 main_loop:
   ldx current_card_id
-  lda #$30
-  sta editor_colors+0
   lda cardPalette_1-28, x
-  sta palette_color_1+4
-  sta editor_colors+1
+  sta screen_palette+4*4+1
+  sta screen_palette+0*4+1
   lda cardPalette_2-28, x
-  sta palette_color_2+4
-  sta editor_colors+2
+  sta screen_palette+4*4+2
+  sta screen_palette+0*4+2
   lda cardPalette_3-28, x
-  sta palette_color_3+4
-  sta editor_colors+3
+  sta screen_palette+4*4+3
+  sta screen_palette+0*4+3
 
   ; figure out arrow position from selected card id.
   ; It'll be just "simply" be a div 6 and a mod 6, right?
@@ -596,9 +606,7 @@ bne tile_column_loop
   sta PPUDATA
 
   lda #$18
-  sta palette_color_2+1
-  lda #$38
-  sta palette_color_1+5
+  sta screen_palette+1*4+2
 
 jmp editor_edit_card_mode
 .endproc
@@ -606,8 +614,6 @@ jmp editor_edit_card_mode
 --procs--
 .proc editor_edit_card_mode
 pixel_row_ppuaddr_start = 0
-  jsr display_editor_colors
-
 .shuffle
   ldx #>edit_card_text
   lda #<edit_card_text
@@ -619,6 +625,10 @@ pixel_row_ppuaddr_start = 0
 
 main_loop:
   jsr place_editor_objects
+
+  ldy editor_pen_i
+  lda screen_palette, y
+  sta screen_palette+5*4+2
 
   lda #$ff^(KEY_A|KEY_B|KEY_START|KEY_SELECT)
   ldy #%01000000
@@ -775,15 +785,6 @@ main_loop:
   lda new_keys
   and #KEY_START
   beq :+
-    ldx current_card_id
-    ; background color is discarded
-    ; lda editor_colors+0
-    lda editor_colors+1
-    sta cardPalette_1-28, x
-    lda editor_colors+2
-    sta cardPalette_2-28, x
-    lda editor_colors+3
-    sta cardPalette_3-28, x
     lda #5
     jsr pently_start_sound
     jmp editor_select_card_mode
@@ -831,13 +832,9 @@ or_masks:
 .endshuffle
   jsr nstripe_append
 
-  ldy editor_pen_i
-  ldx editor_colors, y
-  stx editor_color_edit_old_color
-
 main_loop:
   jsr place_editor_objects
-  ; erase the pen
+  ; erase the pen sprite
   lda #$ff
   sta OAM+4
   sta OAM+8
@@ -853,7 +850,7 @@ main_loop:
   sta popslide_buf, y
   iny
   ldx editor_pen_i
-  lda editor_colors, x
+  lda screen_palette, x
   lsr
   lsr
   lsr
@@ -863,7 +860,7 @@ main_loop:
   sta popslide_buf, y
   iny
   ldx editor_pen_i
-  lda editor_colors, x
+  lda screen_palette, x
   ; there's got to be a better way then to repeat these lines to get the current color.
   and #$0f
   tax
@@ -877,13 +874,13 @@ main_loop:
   jsr editor_vblank_common
 
   ldy editor_pen_i
-  ldx editor_colors, y
+  ldx screen_palette, y
 
   lda new_keys
   and #KEY_B
   beq :+
-    ldx editor_color_edit_old_color
-    stx editor_colors, y
+    ldx screen_palette+5*4+2
+    stx screen_palette, y
     lda #2
     jsr pently_start_sound
     jmp editor_edit_card_mode
@@ -952,7 +949,7 @@ main_loop:
     skip_inc_hue:
   skip_hue_changes:
 
-  stx editor_colors, y
+  stx screen_palette, y
 
   lda new_keys
   and #KEY_UP|KEY_DOWN|KEY_LEFT|KEY_RIGHT
@@ -961,11 +958,18 @@ main_loop:
     jsr pently_start_sound
   skip_play_change_sound:
 
-  jsr display_editor_colors
-
   lda new_keys
   and #KEY_A|KEY_START|KEY_SELECT
   beq :+
+    ldx current_card_id
+    ; no save slot for background color
+    ; lda screen_palette+0
+    lda screen_palette+1
+    sta cardPalette_1-28, x
+    lda screen_palette+2
+    sta cardPalette_2-28, x
+    lda screen_palette+3
+    sta cardPalette_3-28, x
     lda #4
     jsr pently_start_sound
     jmp editor_edit_card_mode
@@ -1016,35 +1020,6 @@ rts
 .endproc
 
 --procs--
-.proc display_editor_colors
-  lda editor_colors+0
-  sta palette_bg
-  sta palette_color_2+2
-  sta palette_color_1+6
-  sta palette_color_2+6
-  lda editor_colors+1
-  sta palette_color_1+0
-  lda editor_colors+2
-  sta palette_color_2+0
-  lda editor_colors+3
-  sta palette_color_3+0
-
-  ldy #$0f
-  lda palette_bg
-  and #$30
-  bne :+
-    ldy #$30
-  :
-  sty palette_color_3+1
-  sty palette_color_3+2
-  sty palette_color_3+3
-  sty palette_color_3+5
-  sty palette_color_3+6
-  sty palette_color_3+7
-rts
-.endproc
-
---procs--
 .proc place_editor_objects
   ; place sprite zero,
   lda #$b5
@@ -1083,14 +1058,9 @@ rts
   sta OAM+7
   sta OAM+11
 
-  ; pen palette
-  ldy editor_pen_i
-  lda editor_colors, y
-  sta palette_color_2+5
-
   ; pointer for indicating selected palette
   ldx #$43  ; the attr if on the left side
-  tya
+  lda editor_pen_i
   and #%00000001
   beq :+
     lda #16
@@ -1098,7 +1068,7 @@ rts
   clc
   adc #132-1
   sta OAM+12
-  tya
+  lda editor_pen_i
   and #%00000010
   beq :+
     lda #46
@@ -1156,7 +1126,6 @@ rts
   bpl bleed_cover_loop
 jmp ppu_clear_oam
 
-
 draw_box_corner:
 ; X = OAM index
 ; Y = box index
@@ -1212,45 +1181,6 @@ box_x2:
 .endproc
 
 --procs--
-.proc initalize_palette
-  lda #$30
-  sta palette_bg
-  ldx #8-1
-  init_loop:
-    lda #$10
-    sta palette_color_1, x
-    lda #$00
-    sta palette_color_2, x
-    lda #$0f
-    sta palette_color_3, x
-    dex
-  bpl init_loop
-  rts
-.endproc
-
---procs--
-.proc upload_palette
-  lda #>$3fe0
-  sta PPUADDR
-  lda #<$3fe0
-  sta PPUADDR
-  ldx #0
-  upload_loop:
-    lda palette_bg
-    sta PPUDATA
-    lda palette_color_1, x
-    sta PPUDATA
-    lda palette_color_2, x
-    sta PPUDATA
-    lda palette_color_3, x
-    sta PPUDATA
-    inx
-    cpx #8
-  bcc upload_loop
-  rts
-.endproc
-
---procs--
 ;;
 ; A = data byte
 ; zp,X = address word
@@ -1284,27 +1214,43 @@ DAS_filter = 6
 screen_mode_flags = 7
   sta DAS_filter
   sty screen_mode_flags
+
+deal_with_bg_color:
+  lda screen_palette+0
+  sta screen_palette+16
+  sta screen_palette+2*4+2
+  sta screen_palette+6*4+1
+  sta screen_palette+6*4+2
+
+  ldy #$0f
+  ;,; lda screen_palette+0
+  and #$30
+  bne :+
+    ldy #$30
+  :
+  sty screen_palette+1*4+3
+  sty screen_palette+2*4+3
+  sty screen_palette+3*4+3
+  sty screen_palette+5*4+3
+  sty screen_palette+6*4+3
+  sty screen_palette+7*4+3
+
+upload_start:
   jsr ppu_wait_vblank
   lda #>OAM
   sta OAM_DMA
 
+upload_palette:
   lda #>$3fe0
   sta PPUADDR
   lda #<$3fe0
   sta PPUADDR
-  ldx #0
+  ldx #$100-32
   upload_loop:
-    lda palette_bg
-    sta PPUDATA
-    lda palette_color_1, x
-    sta PPUDATA
-    lda palette_color_2, x
-    sta PPUDATA
-    lda palette_color_3, x
+    lda screen_palette+32, x
     sta PPUDATA
     inx
-    cpx #8
-  bcc upload_loop
+  bne upload_loop
 
   ; Text uploading can fit in a vblank
   jsr popslide_terminate_blit
