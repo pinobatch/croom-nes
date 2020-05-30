@@ -78,11 +78,6 @@ evenly spaced hues based on the four hues of Apple II high-resolution
 graphics, with purple hearts and orange diamonds.  These somewhat
 resemble the marshmallow pieces in Lucky Charms cereal.
 
-"Are you a Nazi?"
-
-Heck no.  That's why this game is called Concentration *Room,*
-not anything involving a "Camp."
-
 [Waluigious Dian Shi Mali]: http://web.archive.org/web/20100121033942/http://www.waluigious.com:80/2008/09/in-which-dian-shi-ma-li.html
 [Wikipedia Dian Shi Mali]: https://en.wikipedia.org/wiki/Dian_Shi_Mali
 [Dian Shi Mali video]: https://www.youtube.com/watch?v=eIBEO3TrACk
