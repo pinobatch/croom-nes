@@ -224,7 +224,7 @@ noScrollText:
 
 ; The game can have up to 32 stages.
 ; Byte 0: layout (0: 10 cards; 4: 72 cards)
-; Byte 1: if positive: stupidity of CPU opponent
+; Byte 1: if positive: forgetting chance of CPU opponent
 ;         if negative: use solitaire
 ; Byte 2: unused
 ; Byte 3: unused
