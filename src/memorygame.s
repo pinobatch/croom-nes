@@ -749,6 +749,8 @@ clearToCenter:
 :            ; 243+ 12- 244+ 11- [...] 254+ 1- 255+
   adc #15    ; 3 12 4 11 [...] 14 16 15
   sta gameOverClearTransitionY
+  lda #$FF
+  sta cardToDraw  ; don't paint a card over the wipe animation
   rts
 .endproc
 --procs--
